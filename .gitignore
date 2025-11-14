@@ -1,0 +1,7 @@
+# ignore build directory
+/build/
+/build/**
+
+# ignore VS Code settings and workspace files
+.vscode/
+*.code-workspace
