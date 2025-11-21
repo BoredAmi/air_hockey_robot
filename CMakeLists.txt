@@ -27,3 +27,11 @@ include_directories(
     config
     ${OpenCV_INCLUDE_DIRS}
 )
+
+add_executable(test_puck_detection apps/test_puck_detection.cpp src/capture.cpp src/calibration.cpp)
+target_link_libraries(test_puck_detection ${OpenCV_LIBS})
+include_directories(
+    include
+    config
+    ${OpenCV_INCLUDE_DIRS}
+)

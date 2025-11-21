@@ -44,18 +44,34 @@ bool ImageCapture::saveImage(const cv::Mat& image, const std::string& filename) 
     return cv::imwrite(filename, image);
 }
 
-std::vector<cv::Vec3f> ImageCapture::detectPuck(const cv::Mat& grayImage) {
-    std::vector<cv::Vec3f> circles;
-    if (grayImage.empty()) {
-        return circles;
+cv::Point2f ImageCapture::detectPuck(const cv::Mat& grayImage) {
+    cv::Mat thresh;
+    cv::threshold(grayImage, thresh, PUCK_THRESHOLD, 255, cv::THRESH_BINARY_INV);  // Invert for black puck
+
+    //parameters for SimpleBlobDetector
+    cv::SimpleBlobDetector::Params params;
+    params.filterByArea = true;
+    params.minArea = PUCK_MIN_AREA; 
+    params.maxArea = PUCK_MAX_AREA;
+    params.filterByCircularity = true;
+    params.minCircularity = 0.5f;
+    params.filterByInertia = true;
+    params.minInertiaRatio = 0.5f;
+    params.filterByConvexity = true;
+    params.minConvexity = 0.8f;
+    params.filterByColor = true;
+    params.blobColor = 255;  // Detect white blobs (inverted black puck)
+    
+    cv::Ptr<cv::SimpleBlobDetector> detector = cv::SimpleBlobDetector::create(params);
+    std::vector<cv::KeyPoint> keypoints;
+    detector->detect(thresh, keypoints);  // Detect on thresholded image
+
+    if(!keypoints.empty()) {
+        
+        return keypoints[0].pt; // Return the position of the first detected puck
     }
 
-    cv::Mat thresh;
-    cv::threshold(grayImage, thresh, PUCK_THRESHOLD, 255, cv::THRESH_BINARY_INV);
-
-    cv::HoughCircles(thresh, circles, cv::HOUGH_GRADIENT, 1, grayImage.rows/8, 100, 30, PUCK_RADIUS_MIN, PUCK_RADIUS_MAX);
-
-    return circles;
+    return cv::Point2f(-1, -1); // Return an invalid point if no puck is detected
 }
 
 cv::Point2f ImageCapture::imageToTableCoordinates(cv::Point2f imagePoint, int imageWidth, int imageHeight) {

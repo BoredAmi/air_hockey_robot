@@ -20,6 +20,8 @@ const float PHYSICAL_TABLE_HEIGHT = 500.0f;  // 0.5 meters
 // Puck parameters
 const int PUCK_RADIUS_MIN = 10;
 const int PUCK_RADIUS_MAX = 30;
-const int PUCK_THRESHOLD = 50;  // Threshold for black puck detection
+const int PUCK_THRESHOLD = 100;  // Threshold for black puck detection
+const int PUCK_MIN_AREA = 50; // Minimum area for blob detection
+const int PUCK_MAX_AREA = 10000; // Maximum area for blob detection
 
 #endif // CONFIG_HPP

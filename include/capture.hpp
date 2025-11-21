@@ -15,7 +15,7 @@ public:
     cv::Mat captureImage();
     cv::Mat captureGrayscaleImage();
     bool saveImage(const cv::Mat& image, const std::string& filename);
-    std::vector<cv::Vec3f> detectPuck(const cv::Mat& grayImage);
+    cv::Point2f detectPuck(const cv::Mat& grayImage);
     cv::Point2f imageToTableCoordinates(cv::Point2f imagePoint, int imageWidth, int imageHeight);
     bool loadCalibration(const std::string& filename = "camera_calibration.yml");
     cv::Point2f undistortPoint(cv::Point2f distortedPoint);
