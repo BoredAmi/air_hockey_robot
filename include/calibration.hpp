@@ -10,7 +10,7 @@ class CameraCalibration {
 public:
     CameraCalibration(int cameraIndex = CAMERA_INDEX);
     ~CameraCalibration();
-
+    
     bool initialize();
     bool captureCalibrationImage();
     bool calibrateCamera();

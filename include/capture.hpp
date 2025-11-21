@@ -10,7 +10,7 @@ class ImageCapture {
 public:
     ImageCapture(int cameraIndex = CAMERA_INDEX);
     ~ImageCapture();
-
+    cv::Rect detectTable(cv::Mat& image);
     bool initialize();
     cv::Mat captureImage();
     cv::Mat captureGrayscaleImage();

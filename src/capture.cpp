@@ -8,6 +8,28 @@ ImageCapture::~ImageCapture() {
         cap_.release();
     }
 }
+cv::Rect ImageCapture::detectTable(cv::Mat& image) {
+    cv::Mat gray, blurred, edged;
+    cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
+    cv::GaussianBlur(gray, blurred, cv::Size(5, 5), 0);
+    cv::Canny(blurred, edged, 50, 150);
+
+    std::vector<std::vector<cv::Point>> contours;
+    cv::findContours(edged, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+    double maxArea = 0;
+    cv::Rect tableRect;
+
+    for (const auto& contour : contours) {
+        double area = cv::contourArea(contour);
+        if (area > maxArea) {
+            maxArea = area;
+            tableRect = cv::boundingRect(contour);
+        }
+    }
+
+    return tableRect;
+}
 
 bool ImageCapture::initialize() {
     cap_.open(cameraIndex_);
@@ -24,6 +46,10 @@ cv::Mat ImageCapture::captureImage() {
     cv::Mat frame;
     if (cap_.isOpened()) {
         cap_ >> frame;
+        cv::Rect tableRect = detectTable(frame);
+        if (tableRect.area() > 0) {
+            frame = frame(tableRect);
+        }
     }
     return frame;
 }
@@ -83,10 +109,11 @@ cv::Point2f ImageCapture::imageToTableCoordinates(cv::Point2f imagePoint, int im
     float scaleY = PHYSICAL_TABLE_HEIGHT / imageHeight;
 
     // Convert to table coordinates with origin at center
-    // Image origin is top-left, table origin at center
+    // Image origin is top-left, table origin at bottom left
     float tableX = (undistortedPoint.x - imageWidth / 2.0f) * scaleX;
     float tableY = (imageHeight / 2.0f - undistortedPoint.y) * scaleY;  // Flip Y since image Y increases downward
 
+    
     return cv::Point2f(tableX, tableY);
 }
 
