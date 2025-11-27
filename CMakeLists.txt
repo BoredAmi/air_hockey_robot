@@ -57,3 +57,12 @@ include_directories(
     ${OpenCV_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}
 )
+
+add_executable(benchmark apps/benchmark.cpp src/capture.cpp src/calibration.cpp src/kalman.cpp src/trajectory.cpp)
+target_link_libraries(benchmark ${OpenCV_LIBS} Eigen3::Eigen)
+include_directories(
+    include
+    config
+    ${OpenCV_INCLUDE_DIRS}
+    ${EIGEN3_INCLUDE_DIR}
+)

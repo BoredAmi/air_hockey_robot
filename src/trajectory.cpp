@@ -43,11 +43,11 @@ cv::Point2f TrajectoryPredictor::predictPosition(uint64_t futureTimestamp) {
     const int maxBounces = 3; 
 
     for (int bounce = 0; bounce < maxBounces && timeLeft > 0; ++bounce) {
-        // Calculate time to hit each boundary (bounds: x [0,1000], y [0,500])
+        // Calculate time to hit each boundary
         double tx_left = (vx != 0) ? ((vx < 0) ? (0 - pos.x) / vx : 1e9) : 1e9;  // Hit left wall at x=0 if moving left
-        double tx_right = (vx != 0) ? ((vx > 0) ? (1000 - pos.x) / vx : 1e9) : 1e9;  // Hit right wall at x=1000 if moving right
+        double tx_right = (vx != 0) ? ((vx > 0) ? (PHYSICAL_TABLE_WIDTH - pos.x) / vx : 1e9) : 1e9;  // Hit right wall at x=1000 if moving right
         double ty_bottom = (vy != 0) ? ((vy < 0) ? (0 - pos.y) / vy : 1e9) : 1e9;  // Hit bottom wall at y=0 if moving down
-        double ty_top = (vy != 0) ? ((vy > 0) ? (500 - pos.y) / vy : 1e9) : 1e9;  // Hit top wall at y=500 if moving up
+        double ty_top = (vy != 0) ? ((vy > 0) ? (PHYSICAL_TABLE_HEIGHT - pos.y) / vy : 1e9) : 1e9;  // Hit top wall at y=500 if moving up
 
         // Find the earliest hit time within remaining time
         double t_hit = std::min({tx_left, tx_right, ty_bottom, ty_top, timeLeft});
