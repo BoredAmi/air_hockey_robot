@@ -3,6 +3,7 @@
 #include <opencv2/opencv.hpp>
 #include <vector>
 #include "kalman.hpp"
+#include "config.hpp"
 
 struct PuckPosition {
     cv::Point2f position;  // mm

@@ -1,7 +1,7 @@
 #include "capture.hpp"
 #include <iostream>
 
-ImageCapture::ImageCapture(int cameraIndex) : cameraIndex_(cameraIndex) {}
+ImageCapture::ImageCapture(int cameraIndex) : cameraIndex_(cameraIndex), croppedWidth_(TABLE_WIDTH), croppedHeight_(TABLE_HEIGHT) {}
 
 ImageCapture::~ImageCapture() {
     if (cap_.isOpened()) {
@@ -104,20 +104,43 @@ cv::Point2f ImageCapture::detectPuck(const cv::Mat& grayImage) {
 }
 
 cv::Point2f ImageCapture::imageToTableCoordinates(cv::Point2f imagePoint, int imageWidth, int imageHeight) {
+    if (imageWidth == 0) imageWidth = TABLE_WIDTH;
+    if (imageHeight == 0) imageHeight = TABLE_HEIGHT;
     // First, undistort the point if calibration is available
     cv::Point2f undistortedPoint = undistortPoint(imagePoint);
 
     // Scale factors from image pixels to physical units (mm)
-    float scaleX = PHYSICAL_TABLE_WIDTH / croppedWidth_;
-    float scaleY = PHYSICAL_TABLE_HEIGHT / croppedHeight_;
+    float scaleX = PHYSICAL_TABLE_WIDTH / imageWidth;
+    float scaleY = PHYSICAL_TABLE_HEIGHT / imageHeight;
 
-    // Convert to table coordinates with origin at center
-    // Image origin is top-left, table origin at bottom left
-    float tableX = (undistortedPoint.x - croppedWidth_ / 2.0f) * scaleX;
-    float tableY = (croppedHeight_ / 2.0f - undistortedPoint.y) * scaleY;  // Flip Y since image Y increases downward
+    // Origin at bottom-left corner of table
+    float tableX = undistortedPoint.x * scaleX;
+    float tableY = (imageHeight - undistortedPoint.y) * scaleY;  // Y increases up in table
 
     
     return cv::Point2f(tableX, tableY);
+}
+cv::Point2f ImageCapture::TableToImageCoordinates(cv::Point2f tablePoint, int imageWidth, int imageHeight) {
+    if (imageWidth == 0) imageWidth = TABLE_WIDTH;
+    if (imageHeight == 0) imageHeight = TABLE_HEIGHT;
+    // Scale factors from physical units (mm) to image pixels
+    float scaleX = imageWidth / PHYSICAL_TABLE_WIDTH;
+    float scaleY = imageHeight / PHYSICAL_TABLE_HEIGHT;
+
+    // Convert table coordinates back to image coordinates (origin at bottom-left)
+    float imageX = tablePoint.x * scaleX;
+    float imageY = imageHeight - tablePoint.y * scaleY;  // Y flip back
+
+    cv::Point2f imagePoint(imageX, imageY);
+
+    // Undistort the point if calibration is available
+    if (!cameraMatrix_.empty() && !distCoeffs_.empty()) {
+        std::vector<cv::Point2f> points = {imagePoint};
+        cv::undistortPoints(points, points, cameraMatrix_, distCoeffs_, cv::noArray(), cameraMatrix_);
+        imagePoint = points[0];
+    }
+
+    return imagePoint;
 }
 
 bool ImageCapture::loadCalibration(const std::string& filename) {

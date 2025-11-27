@@ -41,13 +41,18 @@ int main() {
             if (puckCenter.x >= 0 && puckCenter.y >= 0) {
                 cv::circle(frame, puckCenter, 10, cv::Scalar(0, 255, 0), -1);  // Green circle
                 cv::putText(frame, "Puck", puckCenter + cv::Point2f(15, 0), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
-                PuckPosition puckPos = {puckCenter, currentTimeUs};
+
+                PuckPosition puckPos = {capture.imageToTableCoordinates(puckCenter, capture.getCroppedWidth(), capture.getCroppedHeight()), currentTimeUs};
+                
                 predictor.addMeasurement(puckPos);
+                std::cout << "Detected Puck Position (Table Coords): " << puckPos.position << " at " << puckPos.timestamp << " us" << std::endl;
             }
 
             // Predict position in 200ms
-            uint64_t futureTimeUs = currentTimeUs + 200000;  // 200ms = 200000 us
+            uint64_t futureTimeUs = currentTimeUs + 5000000;  // 500ms = 500000 us
             cv::Point2f predicted = predictor.predictPosition(futureTimeUs);
+            predicted = capture.TableToImageCoordinates(predicted, capture.getCroppedWidth(), capture.getCroppedHeight());
+            std::cout << "Predicted Position (Image Coords): " << predicted << std::endl;
             if (predicted.x >= 0 && predicted.y >= 0) {
                 cv::circle(frame, predicted, 10, cv::Scalar(0, 0, 255), -1);  // Red circle
                 cv::putText(frame, "Predicted", predicted + cv::Point2f(15, 0), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 1);

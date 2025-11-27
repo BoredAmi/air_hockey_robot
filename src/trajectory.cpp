@@ -31,20 +31,48 @@ void TrajectoryPredictor::addMeasurement(const PuckPosition& measurement) {
 }
 
 cv::Point2f TrajectoryPredictor::predictPosition(uint64_t futureTimestamp) {
-    if (!initialized_) return cv::Point2f(-1, -1);  
+    if (!initialized_) return cv::Point2f(-1, -1);
 
     double dt = (futureTimestamp - lastTimestamp_) / 1000000.0;
-    if (dt < 0) return cv::Point2f(-1, -1);  
+    if (dt < 0) return cv::Point2f(-1, -1);
 
-    Eigen::MatrixXd F(4, 4);
-    F << 1, 0, dt, 0,
-         0, 1, 0, dt,
-         0, 0, 1, 0,
-         0, 0, 0, 1;
-    kalmanFilter_.setF(F);
-    kalmanFilter_.predict();
-    Eigen::VectorXd state = kalmanFilter_.getState();
-    return cv::Point2f(state(0), state(1));
+    Eigen::VectorXd state = kalmanFilter_.getState();  // [x, y, vx, vy]
+    double timeLeft = dt;
+    cv::Point2f pos(state(0), state(1));
+    double vx = state(2), vy = state(3);
+    const int maxBounces = 3; 
+
+    for (int bounce = 0; bounce < maxBounces && timeLeft > 0; ++bounce) {
+        // Calculate time to hit each boundary (bounds: x [0,1000], y [0,500])
+        double tx_left = (vx != 0) ? ((vx < 0) ? (0 - pos.x) / vx : 1e9) : 1e9;  // Hit left wall at x=0 if moving left
+        double tx_right = (vx != 0) ? ((vx > 0) ? (1000 - pos.x) / vx : 1e9) : 1e9;  // Hit right wall at x=1000 if moving right
+        double ty_bottom = (vy != 0) ? ((vy < 0) ? (0 - pos.y) / vy : 1e9) : 1e9;  // Hit bottom wall at y=0 if moving down
+        double ty_top = (vy != 0) ? ((vy > 0) ? (500 - pos.y) / vy : 1e9) : 1e9;  // Hit top wall at y=500 if moving up
+
+        // Find the earliest hit time within remaining time
+        double t_hit = std::min({tx_left, tx_right, ty_bottom, ty_top, timeLeft});
+        if (t_hit < 0 || t_hit > timeLeft) t_hit = timeLeft;  // No valid hit, just advance
+
+        // Move to hit point or end time
+        pos.x += vx * t_hit;
+        pos.y += vy * t_hit;
+        timeLeft -= t_hit;
+
+        if (timeLeft <= 0) break;  // Reached target time
+
+        // Reflect velocity at boundary
+        if (t_hit == tx_left || t_hit == tx_right) vx = -vx;
+        if (t_hit == ty_bottom || t_hit == ty_top) vy = -vy;
+    }
+
+
+    // Clamp to bounds if still out (rare)
+    if (pos.x < 0) pos.x = 0;
+    if (pos.x > PHYSICAL_TABLE_WIDTH) pos.x = PHYSICAL_TABLE_WIDTH;
+    if (pos.y < 0) pos.y = 0;
+    if (pos.y > PHYSICAL_TABLE_HEIGHT) pos.y = PHYSICAL_TABLE_HEIGHT;
+
+    return pos;
 }
 
 void TrajectoryPredictor::reset() {
