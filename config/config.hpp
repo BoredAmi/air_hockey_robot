@@ -18,6 +18,7 @@ const float PHYSICAL_TABLE_WIDTH = 1000.0f;  // 1 meter
 const float PHYSICAL_TABLE_HEIGHT = 500.0f;  // 0.5 meters
 
 // Puck parameters
+const int PUCK_RADIUS_REAL = 15;  // Average puck radius in mm
 const int PUCK_RADIUS_MIN = 10;
 const int PUCK_RADIUS_MAX = 30;
 const int PUCK_THRESHOLD = 100;  // Threshold for black puck detection

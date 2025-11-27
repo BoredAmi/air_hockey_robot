@@ -50,6 +50,8 @@ cv::Mat ImageCapture::captureImage() {
         cv::Rect tableRect = detectTable(frame);
         if (tableRect.area() > 0) {
             frame = frame(tableRect);
+            croppedWidth_ = tableRect.width;
+            croppedHeight_ = tableRect.height;
         }
     }
     return frame;
@@ -106,13 +108,13 @@ cv::Point2f ImageCapture::imageToTableCoordinates(cv::Point2f imagePoint, int im
     cv::Point2f undistortedPoint = undistortPoint(imagePoint);
 
     // Scale factors from image pixels to physical units (mm)
-    float scaleX = PHYSICAL_TABLE_WIDTH / imageWidth;
-    float scaleY = PHYSICAL_TABLE_HEIGHT / imageHeight;
+    float scaleX = PHYSICAL_TABLE_WIDTH / croppedWidth_;
+    float scaleY = PHYSICAL_TABLE_HEIGHT / croppedHeight_;
 
     // Convert to table coordinates with origin at center
     // Image origin is top-left, table origin at bottom left
-    float tableX = (undistortedPoint.x - imageWidth / 2.0f) * scaleX;
-    float tableY = (imageHeight / 2.0f - undistortedPoint.y) * scaleY;  // Flip Y since image Y increases downward
+    float tableX = (undistortedPoint.x - croppedWidth_ / 2.0f) * scaleX;
+    float tableY = (croppedHeight_ / 2.0f - undistortedPoint.y) * scaleY;  // Flip Y since image Y increases downward
 
     
     return cv::Point2f(tableX, tableY);

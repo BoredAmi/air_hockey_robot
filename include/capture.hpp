@@ -21,6 +21,8 @@ public:
     cv::Point2f undistortPoint(cv::Point2f distortedPoint);
 
 private:
+    int croppedWidth_;
+    int croppedHeight_;
     cv::VideoCapture cap_;
     int cameraIndex_;
     cv::Mat cameraMatrix_;
