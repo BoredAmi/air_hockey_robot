@@ -18,11 +18,12 @@ cv::Rect ImageCapture::detectTable(cv::Mat& image) {
     cv::findContours(edged, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
     double maxArea = 0;
+    double minAreaThreshold = (image.rows * image.cols) * 0.2; // Minimum area threshold to filter small contours
     cv::Rect tableRect;
 
     for (const auto& contour : contours) {
         double area = cv::contourArea(contour);
-        if (area > maxArea) {
+        if (area > maxArea && area > minAreaThreshold) {
             maxArea = area;
             tableRect = cv::boundingRect(contour);
         }
