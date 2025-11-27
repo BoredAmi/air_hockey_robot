@@ -47,10 +47,10 @@ cv::Point2f TrajectoryPredictor::predictPosition(uint64_t futureTimestamp) {
         double tx_left = (vx != 0) ? ((vx < 0) ? (0 - pos.x) / vx : 1e9) : 1e9;  // Hit left wall at x=0 if moving left
         double tx_right = (vx != 0) ? ((vx > 0) ? (PHYSICAL_TABLE_WIDTH - pos.x) / vx : 1e9) : 1e9;  // Hit right wall at x=1000 if moving right
         double ty_bottom = (vy != 0) ? ((vy < 0) ? (0 - pos.y) / vy : 1e9) : 1e9;  // Hit bottom wall at y=0 if moving down
-        double ty_top = (vy != 0) ? ((vy > 0) ? (PHYSICAL_TABLE_HEIGHT - pos.y) / vy : 1e9) : 1e9;  // Hit top wall at y=500 if moving up
+
 
         // Find the earliest hit time within remaining time
-        double t_hit = std::min({tx_left, tx_right, ty_bottom, ty_top, timeLeft});
+        double t_hit = std::min({tx_left, tx_right, ty_bottom, timeLeft});
         if (t_hit < 0 || t_hit > timeLeft) t_hit = timeLeft;  // No valid hit, just advance
 
         // Move to hit point or end time
@@ -62,7 +62,7 @@ cv::Point2f TrajectoryPredictor::predictPosition(uint64_t futureTimestamp) {
 
         // Reflect velocity at boundary
         if (t_hit == tx_left || t_hit == tx_right) vx = -vx;
-        if (t_hit == ty_bottom || t_hit == ty_top) vy = -vy;
+        if (t_hit == ty_bottom) vy = -vy;
     }
 
 
