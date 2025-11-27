@@ -50,8 +50,9 @@ cv::Mat ImageCapture::captureImage() {
         cv::Rect tableRect = detectTable(frame);
         if (tableRect.area() > 0) {
             frame = frame(tableRect);
-            croppedWidth_ = tableRect.width;
-            croppedHeight_ = tableRect.height;
+            cv::resize(frame, frame, cv::Size(320, 240));  // Resize for faster processing
+            croppedWidth_ = 320;
+            croppedHeight_ = 240;
         }
     }
     return frame;
@@ -84,10 +85,8 @@ cv::Point2f ImageCapture::detectPuck(const cv::Mat& grayImage) {
     params.maxArea = PUCK_MAX_AREA;
     params.filterByCircularity = true;
     params.minCircularity = 0.5f;
-    params.filterByInertia = true;
-    params.minInertiaRatio = 0.5f;
-    params.filterByConvexity = true;
-    params.minConvexity = 0.8f;
+    params.filterByInertia = false;  // Disabled for speed
+    params.filterByConvexity = false;  // Disabled for speed
     params.filterByColor = true;
     params.blobColor = 255;  // Detect white blobs (inverted black puck)
     
