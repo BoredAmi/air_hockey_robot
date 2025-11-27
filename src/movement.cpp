@@ -1,6 +1,7 @@
 #include "movement.hpp"
 MovementController::MovementController() {
     // Initialize movement controller (e.g., setup communication with motors)
+    //test
 }
 void MovementController::moveTo(cv::Point2f tablePosition) {
     // Convert tablePosition (in mm) to motor commands
