@@ -51,6 +51,11 @@ int main() {
             if (predicted.x >= 0 && predicted.y >= 0) {
                 cv::circle(frame, predicted, 10, cv::Scalar(0, 0, 255), -1);  // Red circle
                 cv::putText(frame, "Predicted", predicted + cv::Point2f(15, 0), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 1);
+                
+                // Draw velocity vector as arrow from current to predicted
+                if (puckCenter.x >= 0 && puckCenter.y >= 0) {
+                    cv::arrowedLine(frame, puckCenter, predicted, cv::Scalar(255, 255, 0), 2, cv::LINE_AA, 0, 0.1);  // Yellow arrow
+                }
             }
 
             cv::imshow("Live Puck Detection", frame);
