@@ -16,6 +16,8 @@ const int TABLE_HEIGHT = 480;
 // Physical table dimensions (mm)
 const float PHYSICAL_TABLE_WIDTH = 1000.0f;  // 1 meter
 const float PHYSICAL_TABLE_HEIGHT = 500.0f;  // 0.5 meters
+const float DEFENSE_ZONE_Y = 100.0f;    // Y width of defense zone
+const float DEFENSE_ZONE_X = 300.0f; // X width of defense zone
 
 // Puck parameters
 const int PUCK_RADIUS_REAL = 15;  // Average puck radius in mm

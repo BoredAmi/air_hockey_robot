@@ -15,6 +15,7 @@ public:
     TrajectoryPredictor();
     void addMeasurement(const PuckPosition& measurement);
     cv::Point2f predictPosition(uint64_t futureTimestamp);
+    cv::Point2f predictEntryToDefenseZone(uint64_t currentTimestamp);
     void reset();  // Reset for lost puck
 private:
     KalmanFilter kalmanFilter_;
