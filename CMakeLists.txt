@@ -13,10 +13,14 @@ find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
 
 # Dodaj pliki źródłowe 
-add_executable(air_hockey_robot apps/main.cpp src/capture.cpp src/calibration.cpp src/kalman.cpp src/trajectory.cpp)
+add_executable(air_hockey_robot apps/main.cpp src/capture.cpp src/calibration.cpp src/kalman.cpp src/trajectory.cpp src/movement.cpp)
 
 # Podłącz biblioteki i ścieżki include
-target_link_libraries(air_hockey_robot ${OpenCV_LIBS} Eigen3::Eigen)
+if(WIN32)
+    target_link_libraries(air_hockey_robot ${OpenCV_LIBS} Eigen3::Eigen ws2_32)
+else()
+    target_link_libraries(air_hockey_robot ${OpenCV_LIBS} Eigen3::Eigen)
+endif()
 include_directories(
     include
     config

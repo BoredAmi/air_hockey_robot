@@ -1,6 +1,8 @@
 #ifndef CONFIG_HPP
 #define CONFIG_HPP
 
+#include <string>
+
 // Camera configuration
 const int CAMERA_INDEX = 0;  // Camera device index
 
@@ -27,4 +29,10 @@ const int PUCK_THRESHOLD = 100;  // Threshold for black puck detection
 const int PUCK_MIN_AREA = 50; // Minimum area for blob detection
 const int PUCK_MAX_AREA = 10000; // Maximum area for blob detection
 
+// Robot configuration
+const std::string ROBOT_IP = "192.168.125.1";  // Default ABB robot IP
+const unsigned short EGM_PORT = 6510;          // Default EGM port
+const double TABLE_OFFSET_X = 0.0;             // Offset from table origin to robot origin in mm
+const double TABLE_OFFSET_Y = 0.0;
+const double TABLE_HEIGHT_Z = 0.0;             // Table height in mm
 #endif // CONFIG_HPP
