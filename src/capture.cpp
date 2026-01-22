@@ -50,9 +50,9 @@ cv::Mat ImageCapture::captureImage() {
         cv::Rect tableRect = detectTable(frame);
         if (tableRect.area() > 0) {
             frame = frame(tableRect);
-            cv::resize(frame, frame, cv::Size(320, 240));  // Resize for faster processing
-            croppedWidth_ = 320;
-            croppedHeight_ = 240;
+            cv::resize(frame, frame, cv::Size(256, 192));  // Resize for faster processing
+            croppedWidth_ = 256;
+            croppedHeight_ = 192;
         }
     }
     return frame;
@@ -78,28 +78,24 @@ cv::Point2f ImageCapture::detectPuck(const cv::Mat& grayImage) {
     cv::Mat thresh;
     cv::threshold(grayImage, thresh, PUCK_THRESHOLD, 255, cv::THRESH_BINARY_INV);  // Invert for black puck
 
-    //parameters for SimpleBlobDetector
-    cv::SimpleBlobDetector::Params params;
-    params.filterByArea = true;
-    params.minArea = PUCK_MIN_AREA; 
-    params.maxArea = PUCK_MAX_AREA;
-    params.filterByCircularity = true;
-    params.minCircularity = 0.5f;
-    params.filterByInertia = false;  // Disabled for speed
-    params.filterByConvexity = false;  // Disabled for speed
-    params.filterByColor = true;
-    params.blobColor = 255;  // Detect white blobs (inverted black puck)
-    
-    cv::Ptr<cv::SimpleBlobDetector> detector = cv::SimpleBlobDetector::create(params);
-    std::vector<cv::KeyPoint> keypoints;
-    detector->detect(thresh, keypoints);  // Detect on thresholded image
+    std::vector<std::vector<cv::Point>> contours;
+    cv::findContours(thresh, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
-    if(!keypoints.empty()) {
-        
-        return keypoints[0].pt; // Return the position of the first detected puck
+    for (const auto& contour : contours) {
+        double area = cv::contourArea(contour);
+        if (area < PUCK_MIN_AREA || area > PUCK_MAX_AREA) continue;
+
+        double perimeter = cv::arcLength(contour, true);
+        double circularity = 4 * CV_PI * area / (perimeter * perimeter);
+        if (circularity < 0.5) continue;  // Not circular enough
+
+        cv::Point2f center;
+        float radius;
+        cv::minEnclosingCircle(contour, center, radius);
+        return center;
     }
 
-    return cv::Point2f(-1, -1); // Return an invalid point if no puck is detected
+    return cv::Point2f(-1, -1);
 }
 
 cv::Point2f ImageCapture::imageToTableCoordinates(cv::Point2f imagePoint, int imageWidth, int imageHeight) {

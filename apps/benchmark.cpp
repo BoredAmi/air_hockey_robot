@@ -32,9 +32,12 @@ int main() {
     int frameCount = 0;
     const int maxFrames = 100;  // Run for 100 frames
 
+    // Pre-allocate memory to avoid dynamic allocation in loop
+    cv::Mat frame, gray;
+
     while (running && frameCount < maxFrames) {
         if (!paused) {
-            cv::Mat frame = capture.captureImage();
+            capture.captureImage().copyTo(frame);  // Reuse pre-allocated frame
             if (frame.empty()) {
                 std::cerr << "Failed to capture frame." << std::endl;
                 continue;
@@ -43,7 +46,7 @@ int main() {
             double currentTime = cv::getTickCount() / cv::getTickFrequency();
             uint64_t currentTimeUs = (uint64_t)(currentTime * 1000000.0);
 
-            cv::Mat gray;
+            // Reuse pre-allocated gray matrix
             cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
 
             // Benchmark detection
