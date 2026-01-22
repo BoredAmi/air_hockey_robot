@@ -1,107 +1,72 @@
 MODULE Cymbergaj
     !==================================================
-    ! ROBOT DRAWING SYSTEM
-    ! Compatible with Python Robot Drawing System
+    ! AIR HOCKEY ROBOT SYSTEM (UDP)
     !==================================================
     
     ! Socket communication variables
-    VAR socketdev client_socket;        ! Connection to c++ client
-    VAR socketdev server_socket;        ! Server socket listener
-    VAR string received_string;         ! Buffer for incoming commands
+    VAR socketdev udp_socket; 
+    VAR string received_string;
     
-    ! Movement parameters
-    CONST speeddata move_speed := v1500;   
-    CONST speeddata fast_speed := v5000;   
-    CONST zonedata move_zone := z0;  
+    ! Movement parameters - optimized for speed
+    CONST speeddata move_speed := v2000; 
+    CONST speeddata fast_speed := v7000; 
+    CONST zonedata move_zone := z0;
     CONST num z_up := -10;
     ! variables
     PERS wobjdata current_wobject;
     VAR robtarget target_position;
     
     !==================================================
-    ! WAIT FOR CLIENT - Safe connection waiting without RETRY
-    !==================================================
-    FUNC bool WaitForClient()
-        SocketAccept server_socket, client_socket \Time:=10;  ! 10 second timeout
-        RETURN TRUE;  ! Successfully accepted a client
-        
-        ERROR
-            IF ERRNO = ERR_SOCK_TIMEOUT THEN
-                RETURN FALSE;
-            ELSE
-                TPWrite "Socket error: " + NumToStr(ERRNO, 0) + " - continuing to wait";
-                RETURN FALSE;
-            ENDIF
-    ENDFUNC
-    
-    !==================================================
-    ! MAIN PROCEDURE - Server initialization and loop
+    ! MAIN PROCEDURE - UDP server initialization
     !==================================================
     PROC main()
         CornerPathWarning FALSE;
-        AccSet 100, 100;  
-        ! Setup TCP server on port 1025 (matches Python client)
-        SocketCreate server_socket;
-        SocketBind server_socket, "0.0.0.0", 1025;
-        SocketListen server_socket;
-        TPWrite "Drawing server ready on port 1025";
-        
-        ! Main server loop - handles multiple client connections
-        WHILE TRUE DO
-            ! Try to accept a client connection
-            IF WaitForClient() THEN
-                TPWrite "Python client connected";
-                
-                ! Process drawing commands from client
-                ProcessClientCommands;
-                
-                ! Cleanup after client disconnects
-                SocketClose client_socket;
-                TPWrite "Client disconnected";
-            ELSE
-                ! No client connected or error - just continue waiting
-                WaitTime 1.0;
-            ENDIF
-        ENDWHILE
-        
-        SocketClose server_socket;
+        AccSet 100, 100;
+
+        ! Create UDP socket on port 1025
+        SocketCreate udp_socket;
+        SocketBind udp_socket, "0.0.0.0", 1025;
+
+        TPWrite "UDP Air Hockey server ready on port 1025";
+
+        ! Main UDP command loop
+        ProcessUDPMessages;
+
+        SocketClose udp_socket;
     ENDPROC
     !==================================================
-    ! COMMAND PROCESSING - Main communication loop
+    ! UDP MESSAGE PROCESSING - Fast command loop
     !==================================================
-    PROC ProcessClientCommands()
+    PROC ProcessUDPMessages()
+        VAR string client_ip;
+        VAR num client_port;
+        
         WHILE TRUE DO
             received_string := "";
-            SocketReceive client_socket \Str:=received_string \Time:=40000;
+            ! Receive packet
+            SocketReceiveFrom udp_socket \Str:=received_string, client_ip, client_port \Time:=0.1;
             
-            ! Process valid commands (ignore empty strings)
+            ! Process valid commands
             IF StrLen(received_string) > 0 THEN
                 ParseAndExecuteCommand received_string;
             ENDIF
         ENDWHILE
+        
         ERROR
             IF ERRNO = ERR_SOCK_TIMEOUT THEN
-                TPWrite "Client timeout - returning to wait for new client";
-                SocketClose client_socket;
-                RETURN;  ! Return to main loop to wait for new client
-            ELSEIF ERRNO = ERR_SOCK_CLOSED THEN
-                TPWrite "Socket closed by remote host, cleaning up";
-                SocketClose client_socket;
+                ! No message received, continue loop
                 RETURN;
             ELSE
-                TPWrite "Connection error: " + NumToStr(ERRNO, 0);
-                TPWrite "Returning to wait for new client connection";
-                SocketClose client_socket;
-                RETURN; 
+                TPWrite "UDP error: " + NumToStr(ERRNO, 0);
+                RETURN;
             ENDIF
-        
     ENDPROC
     
     !==================================================
     ! COMMAND PARSER - Routes commands to handlers
     !==================================================
     PROC ParseAndExecuteCommand(string cmd)
-        ! Clean input - remove line endings from Python
+        ! Clean input - remove line endings
         cmd := StrMap(cmd, "\0A\0D", "");
         ! Route commands to appropriate handlers
         TEST cmd
@@ -150,7 +115,7 @@ MODULE Cymbergaj
         ENDIF
         
         
-        ! Execute movement relative to base_position with precise movement
+        ! Execute movement relative to base_position
         target_position := offs(home, x_coord, y_coord, 0);
         MoveL target_position, fast_speed, move_zone, tool1 \WObj:=current_wobject;
         
@@ -169,18 +134,17 @@ MODULE Cymbergaj
     ENDPROC
     
     !==================================================
-    ! RESPONSE SENDER - Sends status back to Python
+    ! RESPONSE SENDER - Optional UDP response (disabled for speed)
     !==================================================
     PROC SendResponse(string msg)
-        ! Send the response and terminate with CRLF so the Python client can read a full line (OK\r\n)
-        SocketSend client_socket \Str:=msg;
-        ! Send CRLF separately to avoid relying on string concatenation semantics
-        SocketSend client_socket \Str:="\0D\0A";
+        ! For UDP speed, we skip responses to minimize latency
+        ! Uncomment below if you need confirmation:
+        ! SocketSendTo udp_socket \Str:=msg + "\0D\0A" \RemoteAddress:=client_ip \RemotePort:=client_port;
     ENDPROC
     
     PROC setup()
         MoveJ Offs(home,0,0,z_up),move_speed,z5,tool1\WObj:=current_wobject;
         MoveL home, move_speed,fine,tool0 \WObj:=current_wobject;
-        SendResponse("OK");
+        ! No response for UDP speed
     ENDPROC
 ENDMODULE

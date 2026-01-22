@@ -28,7 +28,7 @@ MovementController::MovementController() : robotSocket(
         throw std::runtime_error("Failed to connect to robot");
     }
 
-    // Send START command to initialize
+    // Send START command
     if (!sendCommand("START")) {
         disconnect();
 #ifdef _WIN32
@@ -67,8 +67,8 @@ bool MovementController::connectToRobot() {
 
     ZeroMemory(&hints, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_protocol = IPPROTO_TCP;
+    hints.ai_socktype = SOCK_DGRAM;  
+    hints.ai_protocol = IPPROTO_UDP;
 
     // Resolve the server address and port
     int iResult = getaddrinfo(ROBOT_IP.c_str(), "1025", &hints, &result);
@@ -79,7 +79,7 @@ bool MovementController::connectToRobot() {
 
     // Attempt to connect to an address until one succeeds
     for (ptr = result; ptr != NULL; ptr = ptr->ai_next) {
-        // Create a SOCKET for connecting to server
+        // Create a UDP socket
 #ifdef _WIN32
         robotSocket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
         if (robotSocket == INVALID_SOCKET) {
@@ -96,24 +96,9 @@ bool MovementController::connectToRobot() {
         }
 #endif
 
-        // Connect to server
-        iResult = connect(robotSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
-        if (iResult ==
-#ifdef _WIN32
-            SOCKET_ERROR
-#else
-            -1
-#endif
-        ) {
-#ifdef _WIN32
-            closesocket(robotSocket);
-            robotSocket = INVALID_SOCKET;
-#else
-            close(robotSocket);
-            robotSocket = -1;
-#endif
-            continue;
-        }
+        // For UDP, store server address for later use
+        memcpy(&serverAddr, ptr->ai_addr, ptr->ai_addrlen);
+        serverAddrLen = ptr->ai_addrlen;
         break;
     }
 
@@ -126,7 +111,7 @@ bool MovementController::connectToRobot() {
         robotSocket == -1
 #endif
     ) {
-        std::cerr << "Unable to connect to server!" << std::endl;
+        std::cerr << "Unable to create UDP socket!" << std::endl;
         return false;
     }
 
@@ -138,7 +123,10 @@ bool MovementController::sendCommand(const std::string& command) {
     if (!connected) return false;
 
     std::string cmd = command + "\r\n";
-    int iResult = send(robotSocket, cmd.c_str(), (int)cmd.length(), 0);
+    
+    // UDP send
+    int iResult = sendto(robotSocket, cmd.c_str(), (int)cmd.length(), 0,
+                        (struct sockaddr*)&serverAddr, serverAddrLen);
     if (iResult ==
 #ifdef _WIN32
         SOCKET_ERROR
@@ -146,7 +134,7 @@ bool MovementController::sendCommand(const std::string& command) {
         -1
 #endif
     ) {
-        std::cerr << "send failed: " <<
+        std::cerr << "UDP send failed: " <<
 #ifdef _WIN32
             WSAGetLastError()
 #else
@@ -155,14 +143,6 @@ bool MovementController::sendCommand(const std::string& command) {
             << std::endl;
         connected = false;
         return false;
-    }
-
-    // Optionally receive response
-    char recvbuf[512];
-    iResult = recv(robotSocket, recvbuf, 512, 0);
-    if (iResult > 0) {
-        recvbuf[iResult] = '\0';
-        std::cout << "Response: " << recvbuf << std::endl;
     }
 
     return true;

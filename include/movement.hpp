@@ -31,6 +31,8 @@ private:
     int robotSocket;
 #endif
     bool connected;
+    struct sockaddr_storage serverAddr;  // Server address for UDP
+    socklen_t serverAddrLen;             // Server address length
     bool sendCommand(const std::string& command);
     bool connectToRobot();
     void disconnect();
