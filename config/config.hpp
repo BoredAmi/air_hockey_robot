@@ -26,7 +26,7 @@ const int PUCK_RADIUS_REAL = 15;  // Average puck radius in mm
 const int PUCK_RADIUS_MIN = 10;
 const int PUCK_RADIUS_MAX = 30;
 const int PUCK_THRESHOLD = 100;  // Threshold for black puck detection
-const int PUCK_MIN_AREA = 50; // Minimum area for blob detection
+const int PUCK_MIN_AREA = 150; // Minimum area for blob detection
 const int PUCK_MAX_AREA = 10000; // Maximum area for blob detection
 
 // Robot configuration
