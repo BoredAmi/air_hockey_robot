@@ -15,6 +15,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <cstring>
+#include <netdb.h>
 #endif
 
 class MovementController {

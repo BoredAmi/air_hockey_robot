@@ -1,4 +1,5 @@
 #include "movement.hpp"
+#include <sys/types.h>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
@@ -65,7 +66,7 @@ void MovementController::stop() {
 bool MovementController::connectToRobot() {
     struct addrinfo *result = NULL, *ptr = NULL, hints;
 
-    ZeroMemory(&hints, sizeof(hints));
+    memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_DGRAM;  
     hints.ai_protocol = IPPROTO_UDP;
