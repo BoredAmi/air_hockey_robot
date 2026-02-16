@@ -9,85 +9,35 @@ ImageCapture::~ImageCapture() {
     }
 }
 cv::Rect ImageCapture::detectTable(cv::Mat& image) {
-    if (image.empty()) return cv::Rect();
-
-    cv::Mat hsv;
-    cv::cvtColor(image, hsv, cv::COLOR_BGR2HSV);
-
-    cv::Mat blackMask;
-    cv::inRange(hsv, cv::Scalar(0, 0, 0), cv::Scalar(180, 255, 80), blackMask);
-
-
-    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(7, 7));
-    cv::morphologyEx(blackMask, blackMask, cv::MORPH_CLOSE, kernel);
-    cv::morphologyEx(blackMask, blackMask, cv::MORPH_OPEN, kernel);
+    cv::Mat gray, blurred, edged;
+    cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
+    cv::GaussianBlur(gray, blurred, cv::Size(5, 5), 0);
+    cv::Canny(blurred, edged, 50, 150);
 
     std::vector<std::vector<cv::Point>> contours;
-    cv::findContours(blackMask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+    cv::findContours(edged, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
-    double bestArea = 0;
-    cv::Rect bestRect;
-
-    const double areaImage = static_cast<double>(image.rows) * image.cols;
+    double maxArea = 0;
+    double minAreaThreshold = (image.rows * image.cols) * 0.2; // Minimum area threshold to filter small contours
+    cv::Rect tableRect;
 
     for (const auto& contour : contours) {
         double area = cv::contourArea(contour);
-        if (area < areaImage * 0.01) continue; // ignore tiny blobs
-
-        std::vector<cv::Point> approx;
-        cv::approxPolyDP(contour, approx, 0.02 * cv::arcLength(contour, true), true);
-
-        if (approx.size() == 4 && cv::isContourConvex(approx)) {
-            cv::Rect r = cv::boundingRect(approx);
-            double aspect = static_cast<double>(r.width) / r.height;
-            // Accept roughly square/rectangular shapes
-            if (area > bestArea && aspect > 0.5 && aspect < 2.0) {
-                bestArea = area;
-                bestRect = r;
-            }
-        } else {
-            // If border is thick or broken, contour may not simplify to 4 points.
-            cv::Rect r = cv::boundingRect(contour);
-            if (area > bestArea && r.area() > areaImage * 0.05) {
-                bestArea = area;
-                bestRect = r;
-            }
+        if (area > maxArea && area > minAreaThreshold) {
+            maxArea = area;
+            tableRect = cv::boundingRect(contour);
         }
     }
 
-    // Fallback: edge-based detection (previous approach)
-    if (bestRect.area() == 0) {
-        cv::Mat gray, blurred, edged;
-        cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
-        cv::GaussianBlur(gray, blurred, cv::Size(5, 5), 0);
-        cv::Canny(blurred, edged, 50, 150);
-
-        std::vector<std::vector<cv::Point>> edContours;
-        cv::findContours(edged, edContours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-
-        double maxA = 0;
-        for (const auto& c : edContours) {
-            double a = cv::contourArea(c);
-            if (a > maxA) {
-                maxA = a;
-                bestRect = cv::boundingRect(c);
-            }
-        }
-    }
-
-    return bestRect;
+    return tableRect;
 }
 
 bool ImageCapture::initialize() {
-    cap_.open(cameraIndex_, cv::CAP_V4L2);
+    cap_.open(cameraIndex_);
     if (!cap_.isOpened()) {
         std::cerr << "Error: Could not open camera " << cameraIndex_ << std::endl;
         return false;
     }
-    // Set camera properties
-    cap_.set(cv::CAP_PROP_FRAME_WIDTH, 640);
-    cap_.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
-    cap_.set(cv::CAP_PROP_FPS, 30);
     // Try to load calibration data
     loadCalibration();
     return true;

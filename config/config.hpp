@@ -4,7 +4,7 @@
 #include <string>
 
 // Camera configuration
-const int CAMERA_INDEX = 1;  // Camera device index
+const int CAMERA_INDEX = 0;  // Camera device index
 
 // Calibration parameters
 const int CHESSBOARD_WIDTH = 9;   // Number of internal corners per row
