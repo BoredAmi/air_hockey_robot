@@ -30,7 +30,7 @@ const int PUCK_MIN_AREA = 50; // Minimum area for blob detection
 const int PUCK_MAX_AREA = 10000; // Maximum area for blob detection
 
 // Robot configuration
-const std::string ROBOT_IP = "192.168.125.1";  // Default ABB robot IP
+const std::string ROBOT_IP = "192.168.125.1";  
 const double TABLE_OFFSET_X = 0.0;             // Offset from table origin to robot origin in mm
 const double TABLE_OFFSET_Y = 0.0;
 const double TABLE_HEIGHT_Z = 0.0;             // Table height in mm

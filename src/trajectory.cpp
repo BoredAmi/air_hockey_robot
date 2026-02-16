@@ -99,7 +99,6 @@ cv::Point2f TrajectoryPredictor::predictEntryToDefenseZone(uint64_t currentTimes
         double tx_left = (vx < 0) ? (0 - pos.x) / vx : 1e9;
         double tx_right = (vx > 0) ? (PHYSICAL_TABLE_WIDTH - pos.x) / vx : 1e9;
         double ty_bottom = (vy < 0) ? (0 - pos.y) / vy : 1e9;
-        double ty_top = (vy > 0) ? (PHYSICAL_TABLE_HEIGHT - pos.y) / vy : 1e9;
 
         // Time to enter defense zone
         double t_enter_y = (vy < 0 && pos.y > zoneYMax) ? (zoneYMax - pos.y) / vy : 1e9;  // Entering from top (y direction)
@@ -108,7 +107,7 @@ cv::Point2f TrajectoryPredictor::predictEntryToDefenseZone(uint64_t currentTimes
         double t_enter = std::min({t_enter_y, t_enter_x_min, t_enter_x_max});
 
         // Find earliest event
-        double t_hit = std::min({tx_left, tx_right, ty_bottom, ty_top, t_enter});
+        double t_hit = std::min({tx_left, tx_right, ty_bottom, t_enter});
         double t_step = std::min(t_hit, maxTime - timeAccum);
         if (t_step <= 0) break;
 
@@ -124,7 +123,7 @@ cv::Point2f TrajectoryPredictor::predictEntryToDefenseZone(uint64_t currentTimes
 
         // Reflect if hit boundary
         if (t_hit == tx_left || t_hit == tx_right) vx = -vx;
-        if (t_hit == ty_bottom || t_hit == ty_top) vy = -vy;
+        if (t_hit == ty_bottom) vy = -vy;
     }
 
     return cv::Point2f(-1, -1);  // No entry within maxTime
