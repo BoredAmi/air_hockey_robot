@@ -9,7 +9,7 @@
 int main() {
     std::cout << "Starting trajectory prediction test..." << std::endl;
 
-    ImageCapture capture(0); 
+    ImageCapture capture(CAMERA_INDEX); 
     TrajectoryPredictor predictor;
 
     std::vector<std::string> filenames = {"../img/1.png", "../img/2.png", "../img/3.png", "../img/4.png"};

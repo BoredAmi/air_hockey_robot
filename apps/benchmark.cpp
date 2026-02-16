@@ -7,7 +7,7 @@
 
 int main() {
     cv::setUseOptimized(true);
-    ImageCapture capture(1);  // Use virtual camera index
+    ImageCapture capture(CAMERA_INDEX);  
     if (!capture.initialize()) {
         std::cerr << "Failed to initialize camera." << std::endl;
         return -1;
