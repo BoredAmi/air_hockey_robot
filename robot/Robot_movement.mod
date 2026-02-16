@@ -15,16 +15,16 @@ MODULE Cymbergaj
     ! variables
     PERS wobjdata current_wobject;
     VAR robtarget target_position;
+    CONST robtarget home:=[[71.70,199.54,-29.84],[1,0.000407295,-3.3466E-06,-0.000426444],[-1,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
     
     !==================================================
     ! MAIN PROCEDURE - UDP server initialization
     !==================================================
     PROC main()
-        CornerPathWarning FALSE;
         AccSet 100, 100;
 
         ! Create UDP socket on port 1025
-        SocketCreate udp_socket;
+        SocketCreate udp_socket \UDP;
         SocketBind udp_socket, "0.0.0.0", 1025;
 
         TPWrite "UDP Air Hockey server ready on port 1025";
@@ -117,7 +117,7 @@ MODULE Cymbergaj
         
         ! Execute movement relative to base_position
         target_position := offs(home, x_coord, y_coord, 0);
-        MoveL target_position, fast_speed, move_zone, tool1 \WObj:=current_wobject;
+        MoveL target_position, fast_speed, move_zone, tool0 ;
         
         SendResponse("OK");
     ENDPROC
@@ -128,8 +128,8 @@ MODULE Cymbergaj
     PROC HandleStopCommand()
         TPWrite "Stop command received";
         ! Return to base position safely with smooth movement
-        target_position := home;
-        MoveL Offs(target_position, 0, 0, z_up), fast_speed, move_zone, tool1 \WObj:=current_wobject;
+        target_position := home; 
+        MoveL Offs(target_position, 0, 0, z_up), fast_speed, move_zone, tool0 ;
         SendResponse("STOPPED");
     ENDPROC
     
@@ -143,8 +143,8 @@ MODULE Cymbergaj
     ENDPROC
     
     PROC setup()
-        MoveJ Offs(home,0,0,z_up),move_speed,z5,tool1\WObj:=current_wobject;
-        MoveL home, move_speed,fine,tool0 \WObj:=current_wobject;
+        MoveJ Offs(home,0,0,z_up),move_speed,z5,tool0;
+        MoveL home, move_speed,fine,tool0 ;
         ! No response for UDP speed
     ENDPROC
 ENDMODULE
