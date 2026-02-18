@@ -81,3 +81,11 @@ include_directories(
     ${OpenCV_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}
 )
+add_executable(test_table apps/test_table.cpp src/capture.cpp src/calibration.cpp)
+target_link_libraries(test_table ${OpenCV_LIBS} Eigen3::Eigen)
+include_directories(
+    include
+    config
+    ${OpenCV_INCLUDE_DIRS}
+    ${EIGEN3_INCLUDE_DIR}
+)

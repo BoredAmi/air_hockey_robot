@@ -1,35 +1,53 @@
 #include "capture.hpp"
 #include <iostream>
 
-ImageCapture::ImageCapture(int cameraIndex) : cameraIndex_(cameraIndex), croppedWidth_(TABLE_WIDTH), croppedHeight_(TABLE_HEIGHT) {}
+ImageCapture::ImageCapture(int cameraIndex) : cameraIndex_(cameraIndex), croppedWidth_(TABLE_WIDTH), croppedHeight_(TABLE_HEIGHT), frameCounter_(0), matrixCached_(false) {}
 
 ImageCapture::~ImageCapture() {
     if (cap_.isOpened()) {
         cap_.release();
     }
 }
-cv::Rect ImageCapture::detectTable(cv::Mat& image) {
-    cv::Mat gray, blurred, edged;
+cv::RotatedRect ImageCapture::detectTable(cv::Mat& image) {
+    cv::Mat gray, thresh, morphed;
     cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
-    cv::GaussianBlur(gray, blurred, cv::Size(5, 5), 0);
-    cv::Canny(blurred, edged, 50, 150);
-
+    
+    cv::threshold(gray, thresh, 150, 255, cv::THRESH_BINARY_INV);  // Invert to get black as white
+    
+    // Morphological closing to connect outline segments
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
+    cv::morphologyEx(thresh, morphed, cv::MORPH_CLOSE, kernel);
+    
     std::vector<std::vector<cv::Point>> contours;
-    cv::findContours(edged, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+    cv::findContours(morphed, contours, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
+
+    cv::Mat contourImg = image.clone();
+    cv::drawContours(contourImg, contours, -1, cv::Scalar(0, 255, 0), 2);
 
     double maxArea = 0;
-    double minAreaThreshold = (image.rows * image.cols) * 0.2; // Minimum area threshold to filter small contours
-    cv::Rect tableRect;
+    double minAreaThreshold = (image.rows * image.cols) * 0.1;  
+    cv::RotatedRect tableRotated;
 
     for (const auto& contour : contours) {
         double area = cv::contourArea(contour);
         if (area > maxArea && area > minAreaThreshold) {
-            maxArea = area;
-            tableRect = cv::boundingRect(contour);
+            // Use minAreaRect directly on the contour for better handling of rotated shapes
+            cv::RotatedRect minRect = cv::minAreaRect(contour);
+            cv::Rect candidateRect = minRect.boundingRect();
+            // Ensure the rect is within image bounds and doesn't touch border too much
+            if (candidateRect.x > 0 && candidateRect.y > 0 && 
+                candidateRect.x + candidateRect.width < image.cols && 
+                candidateRect.y + candidateRect.height < image.rows) {
+                double candidateArea = candidateRect.area();
+                if (candidateArea > maxArea) {
+                    maxArea = candidateArea;
+                    tableRotated = minRect;
+                }
+            }
         }
     }
 
-    return tableRect;
+    return tableRotated;
 }
 
 bool ImageCapture::initialize() {
@@ -47,9 +65,45 @@ cv::Mat ImageCapture::captureImage() {
     cv::Mat frame;
     if (cap_.isOpened()) {
         cap_ >> frame;
-        cv::Rect tableRect = detectTable(frame);
+        frameCounter_++;
+        cv::RotatedRect tableRotated;
+        cv::Rect tableRect;
+        cv::Mat perspectiveMatrix;
+        cv::Size outputSize;
+        if (!matrixCached_ || frameCounter_ <= 150) {
+            tableRotated = detectTable(frame);
+            tableRect = tableRotated.boundingRect();
+            if (tableRect.area() > 0) {
+                // Cache the values
+                cachedTableRect_ = tableRect;
+                cachedOutputSize_ = cv::Size(tableRotated.size.width, tableRotated.size.height);
+                // Compute perspective matrix
+                cv::Point2f srcPoints[4];
+                tableRotated.points(srcPoints);
+                for (int i = 0; i < 4; i++) {
+                    srcPoints[i] -= cv::Point2f(tableRect.x, tableRect.y);
+                }
+                cv::Point2f dstPoints[4] = {
+                    {0, 0},
+                    {tableRotated.size.width, 0},
+                    {tableRotated.size.width, tableRotated.size.height},
+                    {0, tableRotated.size.height}
+                };
+                cachedPerspective_ = cv::getPerspectiveTransform(srcPoints, dstPoints);
+                if (frameCounter_ > 500) {
+                    matrixCached_ = true;
+                }
+            }
+        } else {
+            tableRect = cachedTableRect_;
+            perspectiveMatrix = cachedPerspective_;
+            outputSize = cachedOutputSize_;
+        }
         if (tableRect.area() > 0) {
-            frame = frame(tableRect);
+            // Crop to bounding rect
+            cv::Mat cropped = frame(tableRect);
+            // Warp to straighten the table
+            cv::warpPerspective(cropped, frame, cachedPerspective_, cachedOutputSize_);
             cv::resize(frame, frame, cv::Size(256, 192));  // Resize for faster processing
             croppedWidth_ = 256;
             croppedHeight_ = 192;

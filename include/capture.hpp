@@ -10,7 +10,7 @@ class ImageCapture {
 public:
     ImageCapture(int cameraIndex = CAMERA_INDEX);
     ~ImageCapture();
-    cv::Rect detectTable(cv::Mat& image);
+    cv::RotatedRect detectTable(cv::Mat& image);
     bool initialize();
     cv::Mat captureImage();
     cv::Mat captureGrayscaleImage();
@@ -31,6 +31,11 @@ private:
     int cameraIndex_;
     cv::Mat cameraMatrix_;
     cv::Mat distCoeffs_;
+    int frameCounter_;
+    bool matrixCached_;
+    cv::Mat cachedPerspective_;
+    cv::Rect cachedTableRect_;
+    cv::Size cachedOutputSize_;
 };
 
 #endif // CAPTURE_HPP
