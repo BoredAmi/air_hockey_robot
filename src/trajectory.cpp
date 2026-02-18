@@ -82,12 +82,13 @@ cv::Point2f TrajectoryPredictor::predictEntryToDefenseZone(uint64_t currentTimes
     double vx = state(2), vy = state(3);
     double timeAccum = 0.0;
     const int maxBounces = 5;
-    const double maxTime = 1.0; // 1 second
+    const double maxTime = 2.0; // 1 second
+    const double dt = 0.01; // Small time step for simulation (10ms)
 
-    // Defense zone: Y from 0 to DEFENSE_ZONE_Y (100mm), X centered with width DEFENSE_ZONE_X (300mm)
-    const double zoneYMax = DEFENSE_ZONE_Y;  // 100mm
-    const double zoneXMin = (PHYSICAL_TABLE_WIDTH - DEFENSE_ZONE_X) / 2.0;  // (1000 - 300)/2 = 350
-    const double zoneXMax = (PHYSICAL_TABLE_WIDTH + DEFENSE_ZONE_X) / 2.0;  // (1000 + 300)/2 = 650
+    // Defense zone bounds
+    const double zoneYMax = DEFENSE_ZONE_Y;
+    const double zoneXMin = (PHYSICAL_TABLE_WIDTH - DEFENSE_ZONE_X) / 2.0;
+    const double zoneXMax = (PHYSICAL_TABLE_WIDTH + DEFENSE_ZONE_X) / 2.0;
 
     // If already in zone, return current position
     if (pos.y <= zoneYMax && pos.x >= zoneXMin && pos.x <= zoneXMax) {
@@ -95,38 +96,36 @@ cv::Point2f TrajectoryPredictor::predictEntryToDefenseZone(uint64_t currentTimes
     }
 
     for (int bounce = 0; bounce < maxBounces && timeAccum < maxTime; ++bounce) {
-        // Calculate times to boundaries
-        double tx_left = (vx < 0) ? (0 - pos.x) / vx : 1e9;
-        double tx_right = (vx > 0) ? (PHYSICAL_TABLE_WIDTH - pos.x) / vx : 1e9;
-        double ty_bottom = (vy < 0) ? (0 - pos.y) / vy : 1e9;
+        // Simulate in small steps until zone entry or boundary hit
+        while (timeAccum < maxTime) {
+            // Check if in zone after this step
+            cv::Point2f nextPos = pos;
+            nextPos.x += vx * dt;
+            nextPos.y += vy * dt;
 
-        // Time to enter defense zone
-        double t_enter_y = (vy < 0 && pos.y > zoneYMax) ? (zoneYMax - pos.y) / vy : 1e9;  // Entering from top (y direction)
-        double t_enter_x_min = (vx > 0 && pos.x < zoneXMin) ? (zoneXMin - pos.x) / vx : 1e9;  // Entering from left (x direction)
-        double t_enter_x_max = (vx < 0 && pos.x > zoneXMax) ? (zoneXMax - pos.x) / vx : 1e9;  // Entering from right (x direction)
-        double t_enter = std::min({t_enter_y, t_enter_x_min, t_enter_x_max});
+            if (nextPos.y <= zoneYMax && nextPos.x >= zoneXMin && nextPos.x <= zoneXMax) {
+                // Entered zone - interpolate exact entry point
+                // (Simple linear interp; could be more precise)
+                double entryX = pos.x + vx * (dt / 2.0); // Approximate
+                double entryY = pos.y + vy * (dt / 2.0);
+                return cv::Point2f(entryX, entryY);
+            }
 
-        // Find earliest event
-        double t_hit = std::min({tx_left, tx_right, ty_bottom, t_enter});
-        double t_step = std::min(t_hit, maxTime - timeAccum);
-        if (t_step <= 0) break;
+            // Check for boundary hits and reflect
+            if (nextPos.x <= 0 || nextPos.x >= PHYSICAL_TABLE_WIDTH) vx = -vx;
+            if (nextPos.y <= 0 || nextPos.y >= PHYSICAL_TABLE_HEIGHT) vy = -vy;
 
-        // Move
-        pos.x += vx * t_step;
-        pos.y += vy * t_step;
-        timeAccum += t_step;
+            pos = nextPos;
+            timeAccum += dt;
 
-        // If entered zone, return position
-        if (t_hit == t_enter) {
-            return pos;
+            // If bounced, break inner loop to count bounce
+            if (pos.x <= 0 || pos.x >= PHYSICAL_TABLE_WIDTH || pos.y <= 0 || pos.y >= PHYSICAL_TABLE_HEIGHT) {
+                break;
+            }
         }
-
-        // Reflect if hit boundary
-        if (t_hit == tx_left || t_hit == tx_right) vx = -vx;
-        if (t_hit == ty_bottom) vy = -vy;
     }
 
-    return cv::Point2f(-1, -1);  // No entry within maxTime
+    return cv::Point2f(-1, -1);  // No entry within limits
 }
 void TrajectoryPredictor::reset() {
     initialized_ = false;

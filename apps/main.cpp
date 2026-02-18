@@ -9,7 +9,7 @@
 
 int main() {
     cv::setUseOptimized(true);
-    ImageCapture capture(1);  // Use virtual camera index
+    ImageCapture capture(CAMERA_INDEX);  
     if (!capture.initialize()) {
         std::cerr << "Failed to initialize camera." << std::endl;
         return -1;
@@ -44,12 +44,14 @@ int main() {
         uint64_t currentTimeUs = (uint64_t)(currentTime * 1000000.0);
 
         cv::Point2f predictedEntryTable;
+        predictedEntryTable.x = -1.0f;  // Initialize to invalid position
+        predictedEntryTable.y = -1.0f;
         if (puckDetected) {
             PuckPosition puckPos = {capture.imageToTableCoordinates(puckCenter, capture.getCroppedWidth(), capture.getCroppedHeight()), currentTimeUs};
             predictor.addMeasurement(puckPos);
 
-            // Only predict if puck is above defense zone (opponent's side)
-            if (puckPos.position.y > DEFENSE_ZONE_Y) {
+            // Only predict if puck is outside defense zone 
+            if (puckPos.position.y > DEFENSE_ZONE_Y || (puckPos.position.x < (PHYSICAL_TABLE_WIDTH - DEFENSE_ZONE_X) / 2.0f || puckPos.position.x > (PHYSICAL_TABLE_WIDTH + DEFENSE_ZONE_X) / 2.0f)) {
                 // Predict entry to defense zone
                 predictedEntryTable = predictor.predictEntryToDefenseZone(currentTimeUs);
             }
@@ -69,18 +71,18 @@ int main() {
         }
 
         if (predictedEntryTable.x >= 0 && predictedEntryTable.y >= 0) {
-            // Check if within zone
-            if (predictedEntryTable.x >= zoneLeft && predictedEntryTable.x <= zoneRight) {
-                // Draw predicted entry
-                cv::Point2f predictedImage = capture.TableToImageCoordinates(predictedEntryTable, capture.getCroppedWidth(), capture.getCroppedHeight());
-                cv::circle(frame, predictedImage, 10, cv::Scalar(0, 0, 255), -1);  // Red circle
-                cv::putText(frame, "Predicted Entry", predictedImage + cv::Point2f(15, 0), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 1);
+            
+            // Draw predicted entry
+            cv::Point2f predictedImage = capture.TableToImageCoordinates(predictedEntryTable, capture.getCroppedWidth(), capture.getCroppedHeight());
+            cv::circle(frame, predictedImage, 10, cv::Scalar(0, 0, 255), -1);  // Red circle
+            cv::putText(frame, "Predicted Entry", predictedImage + cv::Point2f(15, 0), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 1);
 
-                // Move robot
-                cv::Point2f robotPos(predictedEntryTable.x, 0.0f);
-                mover.moveTo(robotPos);
-                std::cout << "Moving robot to X: " << predictedEntryTable.x << " mm" << std::endl;
-            }
+            // Move robot
+            cv::Point2f robotPos(predictedEntryTable.x, 0.0f);
+            mover.moveTo(robotPos);
+            
+            std::cout << "Moving robot to X: " << predictedEntryTable.x << " mm and Y: " << predictedEntryTable.y << " mm" << std::endl;
+            
         }
 
         cv::imshow("Air Hockey Defense", frame);
