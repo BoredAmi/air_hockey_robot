@@ -76,9 +76,10 @@ cv::Point2f TrajectoryPredictor::predictPosition(uint64_t futureTimestamp) {
 
     for (int bounce = 0; bounce < maxBounces && timeLeft > 0; ++bounce) {
         // Calculate time to hit each boundary
-        double tx_left = (vx != 0) ? ((vx < 0) ? (0 - pos.x) / vx : 1e9) : 1e9;  // Hit left wall at x=0 if moving left
-        double tx_right = (vx != 0) ? ((vx > 0) ? (PHYSICAL_TABLE_WIDTH - pos.x) / vx : 1e9) : 1e9;  // Hit right wall at x=1000 if moving right
-        double ty_bottom = (vy != 0) ? ((vy < 0) ? (0 - pos.y) / vy : 1e9) : 1e9;  // Hit bottom wall at y=0 if moving down
+        double tx_left = (vx != 0) ? ((vx < 0) ? (0 - pos.x) / vx : 1e9) : 1e9;  // Hit left wall if moving left
+        double tx_right = (vx != 0) ? ((vx > 0) ? (PHYSICAL_TABLE_WIDTH - pos.x) / vx : 1e9) : 1e9;  // Hit right wall if moving right
+        double ty_bottom = (vy != 0) ? ((vy < 0) ? (0 - pos.y) / vy : 1e9) : 1e9;  // Hit bottom wall if moving down
+        double ty_top = (vy != 0) ? ((vy > 0) ? (PHYSICAL_TABLE_HEIGHT - pos.y) / vy : 1e9) : 1e9;  // Hit top wall if moving up
 
 
         // Find the earliest hit time within remaining time
@@ -91,10 +92,30 @@ cv::Point2f TrajectoryPredictor::predictPosition(uint64_t futureTimestamp) {
         timeLeft -= t_hit;
 
         if (timeLeft <= 0) break;  // Reached target time
+        switch (WHERE_DEFENSE_ZONE) //prevent bouncing at the oposite side to the defense zone
+        {
+        case 0: // Left defense zone reflect velocity at boundary except for right wall
+                if (t_hit == tx_left) vx = -vx;
+                if (t_hit == ty_bottom || t_hit == ty_top) vy = -vy;
+                break;
+            break;
+        case 1: // Right defense zone
+                if (t_hit == tx_right) vx = -vx;
+                if (t_hit == ty_bottom || t_hit == ty_top) vy = -vy;
+            break;
+        case 2: // Bottom defense zone
+                if (t_hit == ty_bottom) vy = -vy;
+                if (t_hit == tx_left || t_hit == tx_right) vx = -vx;
+            break;
+        case 3: // Top defense zone
+                if (t_hit == ty_top) vy = -vy;
+                if (t_hit == tx_left || t_hit == tx_right) vx = -vx;    
 
-        // Reflect velocity at boundary
-        if (t_hit == tx_left || t_hit == tx_right) vx = -vx;
-        if (t_hit == ty_bottom) vy = -vy;
+            break;
+        
+        default:
+            break;
+        }
     }
 
 
@@ -116,6 +137,7 @@ cv::Point2f TrajectoryPredictor::predictEntryToDefenseZone(uint64_t currentTimes
     const int maxBounces = 5;
     const double maxTime = 2.0; // 1 second
     const double dt = 0.01; // Small time step for simulation (10ms)
+    bool didnthitboundary = true;
 
 
     // If already in zone, return current position
@@ -138,16 +160,36 @@ cv::Point2f TrajectoryPredictor::predictEntryToDefenseZone(uint64_t currentTimes
                 double entryY = pos.y + vy * (dt / 2.0);
                 return cv::Point2f(entryX, entryY);
             }
-
             // Check for boundary hits and reflect
-            if (nextPos.x <= 0 || nextPos.x >= PHYSICAL_TABLE_WIDTH) vx = -vx;
-            if (nextPos.y <= 0 || nextPos.y >= PHYSICAL_TABLE_HEIGHT) vy = -vy;
+            switch (WHERE_DEFENSE_ZONE) //prevent bouncing at the oposite side to the defense zone
+            {
+            case 0: // Left defense zone reflect velocity at boundary except for right wall
+                    if (nextPos.x <= 0 ) vx = -vx;
+                    if (nextPos.y <= 0 || nextPos.y >= PHYSICAL_TABLE_HEIGHT) vy = -vy;
+                break;
+            case 1: // Right defense zone
+                    if (nextPos.x >= PHYSICAL_TABLE_WIDTH) vx = -vx;
+                    if (nextPos.y <= 0 || nextPos.y >= PHYSICAL_TABLE_HEIGHT) vy = -vy;
+                break;
+            case 2: // Bottom defense zone
+                    if (nextPos.y >= PHYSICAL_TABLE_HEIGHT) vy = -vy;
+                    if (nextPos.x <= 0 || nextPos.x >= PHYSICAL_TABLE_WIDTH) vx = -vx;
+                break;
+            case 3: // Top defense zone
+                    if (nextPos.y <= 0) vy = -vy;
+                    if (nextPos.x <= 0 || nextPos.x >= PHYSICAL_TABLE_WIDTH) vx = -vx;    
+                break;  
+            default:
+                    didnthitboundary = true;
+                break;
+            }
 
             pos = nextPos;
             timeAccum += dt;
 
             // If bounced, break inner loop to count bounce
-            if (pos.x <= 0 || pos.x >= PHYSICAL_TABLE_WIDTH || pos.y <= 0 || pos.y >= PHYSICAL_TABLE_HEIGHT) {
+            if (!didnthitboundary) {
+                didnthitboundary = true;
                 break;
             }
         }
