@@ -51,10 +51,19 @@ cv::RotatedRect ImageCapture::detectTable(cv::Mat& image) {
 }
 
 bool ImageCapture::initialize() {
-    cap_.open(cameraIndex_);
-    if (!cap_.isOpened()) {
-        std::cerr << "Error: Could not open camera " << cameraIndex_ << std::endl;
-        return false;
+    if (USE_LIBCAMERA_BOOL) {
+        std::string pipeline = "libcamerasrc ! video/x-raw,format=BGR,width=1640,height=1232 ! appsink sync=false";
+        cap_.open(pipeline, cv::CAP_GSTREAMER);
+        if (!cap_.isOpened()) {
+            std::cerr << "Error: Could not open camera with GStreamer pipeline" << std::endl;
+            return false;
+        }
+    } else {
+        cap_.open(CAMERA_INDEX);
+        if (!cap_.isOpened()) {
+            std::cerr << "Error: Could not open camera " << CAMERA_INDEX << std::endl;
+            return false;
+        }
     }
     // Try to load calibration data
     loadCalibration();
@@ -107,6 +116,7 @@ cv::Mat ImageCapture::captureImage() {
             croppedWidth_ = 256;
             croppedHeight_ = 192;
         }
+        
     }
     return frame;
 }
