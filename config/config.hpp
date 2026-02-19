@@ -5,6 +5,10 @@
 
 // Camera configuration
 const int CAMERA_INDEX = 0;  // Camera device index
+#ifndef USE_LIBCAMERA
+#define USE_LIBCAMERA true
+#endif
+const bool USE_LIBCAMERA_BOOL = USE_LIBCAMERA;  // For use in code
 // Calibration parameters
 const int CHESSBOARD_WIDTH = 9;   // Number of internal corners per row
 const int CHESSBOARD_HEIGHT = 6;  // Number of internal corners per column
