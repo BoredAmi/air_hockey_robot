@@ -3,22 +3,25 @@ project(air_hockey_robot)
 
 set(CMAKE_CXX_STANDARD 17)
 
-# Wskaż katalog z OpenCVConfig.cmake
 set(OpenCV_DIR "C:/msys64/mingw64/share/opencv4")
 
-# Znajdź OpenCV
+
 find_package(OpenCV REQUIRED)
 
-# Znajdź libcamera
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(LIBCAMERA REQUIRED libcamera)
+if(NOT WIN32)
+    
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(LIBCAMERA REQUIRED libcamera)
+else()
+    add_definitions(-DUSE_LIBCAMERA=false)
+    set(LIBCAMERA_LIBRARIES "")
+    set(LIBCAMERA_INCLUDE_DIRS "")
+endif()
 
-# Znajdź Eigen
 find_package(Eigen3 REQUIRED)
 
-# Dodaj pliki źródłowe 
+
 add_executable(air_hockey_robot apps/main.cpp src/capture.cpp src/calibration.cpp src/kalman.cpp src/trajectory.cpp src/movement.cpp)
-# Podłącz biblioteki i ścieżki include
 if(WIN32)
     target_link_libraries(air_hockey_robot ${OpenCV_LIBS} Eigen3::Eigen ws2_32)
 else()
