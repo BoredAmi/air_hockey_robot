@@ -167,3 +167,29 @@ void MovementController::disconnect() {
     }
     connected = false;
 }
+cv::Point2f MovementController::TableToRobotCoordinates(cv::Point2f tablePosition) {
+    // Assuming robot origin is at bottom-right corner of the table if rotation is 0, adjust based on rotation
+    float robotX, robotY;
+    switch (Camera_Rotation) {
+        case 0: // No rotation
+            robotX = PHYSICAL_TABLE_WIDTH - tablePosition.x + TABLE_OFFSET_X;
+            robotY = tablePosition.y + TABLE_OFFSET_Y;
+            break;
+        case 1: // 90 degrees clockwise
+            robotX = tablePosition.y + TABLE_OFFSET_X;
+            robotY = tablePosition.x + TABLE_OFFSET_Y;
+            break;
+        case 2: // 90 degrees counterclockwise
+            robotX = PHYSICAL_TABLE_WIDTH - tablePosition.y + TABLE_OFFSET_X;
+            robotY = PHYSICAL_TABLE_HEIGHT - tablePosition.x + TABLE_OFFSET_Y;
+            break;
+        case 3: // 180 degrees
+            robotX = tablePosition.x + TABLE_OFFSET_X;
+            robotY = PHYSICAL_TABLE_HEIGHT - tablePosition.y + TABLE_OFFSET_Y;
+            break;
+        default:
+            robotX = PHYSICAL_TABLE_WIDTH - tablePosition.x + TABLE_OFFSET_X;
+            robotY = tablePosition.y + TABLE_OFFSET_Y;
+    }
+    return cv::Point2f(robotX, robotY);
+}

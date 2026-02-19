@@ -65,6 +65,20 @@ int main() {
         cv::Point2f zoneBottomRight = capture.TableToImageCoordinates(cv::Point2f(predictor.zoneXMax, predictor.zoneYMax), capture.getCroppedWidth(), capture.getCroppedHeight());
         cv::rectangle(frame, zoneTopLeft, zoneBottomRight, cv::Scalar(255, 0, 0), 2);  // Blue rectangle for zone
 
+        // Draw corners of the table
+        cv::Point2f topLeft = capture.TableToImageCoordinates(cv::Point2f(0, 0), capture.getCroppedWidth(), capture.getCroppedHeight());
+        cv::Point2f topRight = capture.TableToImageCoordinates(cv::Point2f(PHYSICAL_TABLE_WIDTH, 0), capture.getCroppedWidth(), capture.getCroppedHeight());
+        cv::Point2f bottomLeft = capture.TableToImageCoordinates(cv::Point2f(0, PHYSICAL_TABLE_HEIGHT), capture.getCroppedWidth(), capture.getCroppedHeight());
+        cv::Point2f bottomRight = capture.TableToImageCoordinates(cv::Point2f(PHYSICAL_TABLE_WIDTH, PHYSICAL_TABLE_HEIGHT), capture.getCroppedWidth(), capture.getCroppedHeight());
+        cv::circle(frame, topLeft, 5, cv::Scalar(255, 255, 0), -1);  // every corner in different color with label
+        cv::circle(frame, topRight, 5, cv::Scalar(255, 0, 255), -1);
+        cv::circle(frame, bottomLeft, 5, cv::Scalar(0, 255, 255), -1);
+        cv::circle(frame, bottomRight, 5, cv::Scalar(0, 0, 255), -1);
+        cv::putText(frame, "Top Left", topLeft + cv::Point2f(15, 0), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 0), 1);
+        cv::putText(frame, "Top Right", topRight + cv::Point2f(15, 0), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 0, 255), 1);
+        cv::putText(frame, "Bottom Left", bottomLeft + cv::Point2f(15, 0), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 255), 1);
+        cv::putText(frame, "Bottom Right", bottomRight + cv::Point2f(15, 0), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 1);
+
         if (puckDetected) {
             // Draw puck
             cv::circle(frame, puckCenter, 10, cv::Scalar(0, 255, 0), -1);  // Green circle
@@ -79,7 +93,9 @@ int main() {
             cv::putText(frame, "Predicted Entry", predictedImage + cv::Point2f(15, 0), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 1);
 
             // Move robot
-            cv::Point2f robotPos(predictedEntryTable.x, predictedEntryTable.y);
+            cv::Point2f robotPosInTable(predictedEntryTable.x, predictedEntryTable.y);
+            cv::Point2f robotPos = mover.TableToRobotCoordinates(robotPosInTable);
+
             mover.moveTo(robotPos);
             
             std::cout << "Moving robot to X: " << predictedEntryTable.x << " mm and Y: " << predictedEntryTable.y << " mm" << std::endl;

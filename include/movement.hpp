@@ -24,6 +24,7 @@ public:
     ~MovementController();
     void moveTo(cv::Point2f tablePosition);
     void stop();
+    cv::Point2f TableToRobotCoordinates(cv::Point2f tablePosition);
 
 private:
 #ifdef _WIN32
