@@ -51,17 +51,17 @@ int main() {
             predictor.addMeasurement(puckPos);
 
             // Only predict if puck is outside defense zone 
-            if (puckPos.position.y > DEFENSE_ZONE_Y || (puckPos.position.x < (PHYSICAL_TABLE_WIDTH - DEFENSE_ZONE_X) / 2.0f || puckPos.position.x > (PHYSICAL_TABLE_WIDTH + DEFENSE_ZONE_X) / 2.0f)) {
+            if (!predictor.isInDefenseZone(puckPos.position)) {
                 // Predict entry to defense zone
                 predictedEntryTable = predictor.predictEntryToDefenseZone(currentTimeUs);
             }
         }
 
         // Draw defense zone
-        float zoneLeft = (PHYSICAL_TABLE_WIDTH - DEFENSE_ZONE_X) / 2.0f;
-        float zoneRight = zoneLeft + DEFENSE_ZONE_X;
-        cv::Point2f zoneTopLeft = capture.TableToImageCoordinates(cv::Point2f(zoneLeft, DEFENSE_ZONE_Y), capture.getCroppedWidth(), capture.getCroppedHeight());
-        cv::Point2f zoneBottomRight = capture.TableToImageCoordinates(cv::Point2f(zoneRight, 0.0f), capture.getCroppedWidth(), capture.getCroppedHeight());
+
+        
+        cv::Point2f zoneTopLeft = capture.TableToImageCoordinates(cv::Point2f(predictor.zoneXMin, predictor.zoneYMin), capture.getCroppedWidth(), capture.getCroppedHeight());
+        cv::Point2f zoneBottomRight = capture.TableToImageCoordinates(cv::Point2f(predictor.zoneXMax, predictor.zoneYMax), capture.getCroppedWidth(), capture.getCroppedHeight());
         cv::rectangle(frame, zoneTopLeft, zoneBottomRight, cv::Scalar(255, 0, 0), 2);  // Blue rectangle for zone
 
         if (puckDetected) {

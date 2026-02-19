@@ -17,6 +17,8 @@ public:
     cv::Point2f predictPosition(uint64_t futureTimestamp);
     cv::Point2f predictEntryToDefenseZone(uint64_t currentTimestamp);
     void reset();  // Reset for lost puck
+    double zoneYMax, zoneYMin, zoneXMin, zoneXMax;
+    bool isInDefenseZone(const cv::Point2f& pos);
 private:
     KalmanFilter kalmanFilter_;
     uint64_t lastTimestamp_;

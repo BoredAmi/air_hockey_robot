@@ -1,6 +1,38 @@
 #include "trajectory.hpp"
 
-TrajectoryPredictor::TrajectoryPredictor() : kalmanFilter_(), lastTimestamp_(0), initialized_(false) {}
+TrajectoryPredictor::TrajectoryPredictor() : kalmanFilter_(), lastTimestamp_(0), initialized_(false) {
+        // Defense zone bounds
+    switch (WHERE_DEFENSE_ZONE) {
+    case 0: // Left defense zone
+        zoneYMin = (PHYSICAL_TABLE_HEIGHT - DEFENSE_ZONE_WIDTH) / 2.0;
+        zoneYMax = (PHYSICAL_TABLE_HEIGHT + DEFENSE_ZONE_WIDTH) / 2.0;
+        zoneXMin = 0;
+        zoneXMax = DEFENSE_ZONE_HEIGHT;
+        break;
+    case 1: // Right defense zone
+        zoneYMin = (PHYSICAL_TABLE_HEIGHT - DEFENSE_ZONE_WIDTH) / 2.0;
+        zoneYMax = (PHYSICAL_TABLE_HEIGHT + DEFENSE_ZONE_WIDTH) / 2.0;
+        zoneXMin = PHYSICAL_TABLE_WIDTH - DEFENSE_ZONE_HEIGHT;
+        zoneXMax = PHYSICAL_TABLE_WIDTH;
+        break;
+    case 2: // Bottom defense zone
+        zoneYMin = 0;
+        zoneYMax = DEFENSE_ZONE_HEIGHT;
+        zoneXMin = (PHYSICAL_TABLE_WIDTH - DEFENSE_ZONE_WIDTH) / 2.0;
+        zoneXMax = (PHYSICAL_TABLE_WIDTH + DEFENSE_ZONE_WIDTH) / 2.0;
+
+        break;
+    case 3: // Top defense zone
+        zoneYMin = PHYSICAL_TABLE_HEIGHT - DEFENSE_ZONE_HEIGHT;
+        zoneYMax = PHYSICAL_TABLE_HEIGHT;
+        zoneXMin = (PHYSICAL_TABLE_WIDTH - DEFENSE_ZONE_WIDTH) / 2.0;
+        zoneXMax = (PHYSICAL_TABLE_WIDTH + DEFENSE_ZONE_WIDTH) / 2.0;
+        break;
+    
+    default:
+        break;
+    }
+}
 
 void TrajectoryPredictor::addMeasurement(const PuckPosition& measurement) {
     if (!initialized_) {
@@ -85,13 +117,9 @@ cv::Point2f TrajectoryPredictor::predictEntryToDefenseZone(uint64_t currentTimes
     const double maxTime = 2.0; // 1 second
     const double dt = 0.01; // Small time step for simulation (10ms)
 
-    // Defense zone bounds
-    const double zoneYMax = DEFENSE_ZONE_Y;
-    const double zoneXMin = (PHYSICAL_TABLE_WIDTH - DEFENSE_ZONE_X) / 2.0;
-    const double zoneXMax = (PHYSICAL_TABLE_WIDTH + DEFENSE_ZONE_X) / 2.0;
 
     // If already in zone, return current position
-    if (pos.y <= zoneYMax && pos.x >= zoneXMin && pos.x <= zoneXMax) {
+    if (pos.y <= zoneYMax && pos.y >= zoneYMin && pos.x >= zoneXMin && pos.x <= zoneXMax) {
         return pos;
     }
 
@@ -103,7 +131,7 @@ cv::Point2f TrajectoryPredictor::predictEntryToDefenseZone(uint64_t currentTimes
             nextPos.x += vx * dt;
             nextPos.y += vy * dt;
 
-            if (nextPos.y <= zoneYMax && nextPos.x >= zoneXMin && nextPos.x <= zoneXMax) {
+            if (nextPos.y <= zoneYMax && nextPos.y >= zoneYMin && nextPos.x >= zoneXMin && nextPos.x <= zoneXMax) {
                 // Entered zone - interpolate exact entry point
                 // (Simple linear interp; could be more precise)
                 double entryX = pos.x + vx * (dt / 2.0); // Approximate
@@ -130,4 +158,7 @@ cv::Point2f TrajectoryPredictor::predictEntryToDefenseZone(uint64_t currentTimes
 void TrajectoryPredictor::reset() {
     initialized_ = false;
     lastTimestamp_ = 0;
+}
+bool TrajectoryPredictor::isInDefenseZone(const cv::Point2f& pos) {
+    return (pos.y <= zoneYMax && pos.y >= zoneYMin && pos.x >= zoneXMin && pos.x <= zoneXMax);
 }

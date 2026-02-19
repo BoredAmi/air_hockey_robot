@@ -5,7 +5,6 @@
 
 // Camera configuration
 const int CAMERA_INDEX = 0;  // Camera device index
-
 // Calibration parameters
 const int CHESSBOARD_WIDTH = 9;   // Number of internal corners per row
 const int CHESSBOARD_HEIGHT = 6;  // Number of internal corners per column
@@ -18,8 +17,11 @@ const int TABLE_HEIGHT = 480;
 // Physical table dimensions (mm)
 const float PHYSICAL_TABLE_WIDTH = 505.0f;  // 1 meter
 const float PHYSICAL_TABLE_HEIGHT = 520.0f;  // 0.5 meters
-const float DEFENSE_ZONE_Y = 100.0f;    // Y width of defense zone
-const float DEFENSE_ZONE_X = 200.0f; // X width of defense zone
+const float DEFENSE_ZONE_HEIGHT = 100.0f;    // height of defense zone
+const float DEFENSE_ZONE_WIDTH = 200.0f; // width of defense zone
+
+const int WHERE_DEFENSE_ZONE = 2;  // Where defense zone is located (0 = left, 1 = right, 2 = bottom, 3 = top)
+
 
 // Puck parameters
 const int PUCK_RADIUS_REAL = 15;  // Average puck radius in mm
