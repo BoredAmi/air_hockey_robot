@@ -78,7 +78,7 @@ int main() {
             cv::putText(frame, "Predicted Entry", predictedImage + cv::Point2f(15, 0), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 1);
 
             // Move robot
-            cv::Point2f robotPos(predictedEntryTable.x, 0.0f);
+            cv::Point2f robotPos(predictedEntryTable.x, predictedEntryTable.y);
             mover.moveTo(robotPos);
             
             std::cout << "Moving robot to X: " << predictedEntryTable.x << " mm and Y: " << predictedEntryTable.y << " mm" << std::endl;
