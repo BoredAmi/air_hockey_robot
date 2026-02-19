@@ -25,7 +25,7 @@ const float DEFENSE_ZONE_HEIGHT = 100.0f;    // height of defense zone
 const float DEFENSE_ZONE_WIDTH = 200.0f; // width of defense zone
 
 const int WHERE_DEFENSE_ZONE = 2;  // Where defense zone is located (0 = left, 1 = right, 2 = bottom, 3 = top)
-const int Camera_Rotation = 0; // Camera rotation in degrees (0=0, 1=90, 2=-90,3=180)
+const int robot_origin_corner = 0; // Camera rotation in degrees (0=top_left, 1=top_right, 2=bottom_left,3=bottom_right)
 
 
 // Puck parameters
