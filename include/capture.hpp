@@ -22,6 +22,7 @@ public:
     cv::Point2f undistortPoint(cv::Point2f distortedPoint);
     int getCroppedWidth() const { return croppedWidth_; }
     int getCroppedHeight() const { return croppedHeight_; }
+    void tableFound(bool found) { tableFound_ = found; }
     
 
 private:
@@ -31,8 +32,8 @@ private:
     int cameraIndex_;
     cv::Mat cameraMatrix_;
     cv::Mat distCoeffs_;
-    int frameCounter_;
     bool matrixCached_;
+    bool tableFound_;
     cv::Mat cachedPerspective_;
     cv::Rect cachedTableRect_;
     cv::Size cachedOutputSize_;

@@ -8,6 +8,7 @@
 #include <string>
 
 int main() {
+    bool TableFound = false;
     cv::setUseOptimized(true);
     ImageCapture capture(CAMERA_INDEX);  
     if (!capture.initialize()) {
@@ -88,6 +89,14 @@ int main() {
         cv::imshow("Air Hockey Defense", frame);
 
         int key = cv::waitKey(30);  // 30ms delay
+        if (key == 'f'){
+            TableFound = true;
+            capture.tableFound(true);
+        }
+         else if (key == 'l'){
+            TableFound = false;
+            capture.tableFound(false);
+        }
         if (key == 'q' || key == 'Q') {
             running = false;
         }

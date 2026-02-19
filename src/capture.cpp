@@ -1,7 +1,7 @@
 #include "capture.hpp"
 #include <iostream>
 
-ImageCapture::ImageCapture(int cameraIndex) : cameraIndex_(cameraIndex), croppedWidth_(TABLE_WIDTH), croppedHeight_(TABLE_HEIGHT), frameCounter_(0), matrixCached_(false) {}
+ImageCapture::ImageCapture(int cameraIndex) : cameraIndex_(cameraIndex), croppedWidth_(TABLE_WIDTH), croppedHeight_(TABLE_HEIGHT), tableFound_(false), matrixCached_(false) {}
 
 ImageCapture::~ImageCapture() {
     if (cap_.isOpened()) {
@@ -65,12 +65,11 @@ cv::Mat ImageCapture::captureImage() {
     cv::Mat frame;
     if (cap_.isOpened()) {
         cap_ >> frame;
-        frameCounter_++;
         cv::RotatedRect tableRotated;
         cv::Rect tableRect;
         cv::Mat perspectiveMatrix;
         cv::Size outputSize;
-        if (!matrixCached_ || frameCounter_ <= 150) {
+        if (!matrixCached_ || !tableFound_) {
             tableRotated = detectTable(frame);
             tableRect = tableRotated.boundingRect();
             if (tableRect.area() > 0) {
@@ -90,7 +89,7 @@ cv::Mat ImageCapture::captureImage() {
                     {0, tableRotated.size.height}
                 };
                 cachedPerspective_ = cv::getPerspectiveTransform(srcPoints, dstPoints);
-                if (frameCounter_ > 500) {
+                if (tableFound_){
                     matrixCached_ = true;
                 }
             }
