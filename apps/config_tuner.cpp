@@ -48,26 +48,17 @@ int main() {
     cv::createTrackbar("WHERE_DEFENSE_ZONE", "Parameter Controls", &where_defense_zone, 3);
     cv::createTrackbar("ROBOT_ORIGIN_CORNER", "Parameter Controls", &robot_origin_corner, 3);
 
-    // Buttons
-    cv::createButton("Save Config", [](int, void* userdata) {
-        Config* cfg = static_cast<Config*>(userdata);
-        cfg->saveToFile();
-    }, &config);
-
-    cv::createButton("Load Config", [](int, void* userdata) {
-        Config* cfg = static_cast<Config*>(userdata);
-        cfg->loadFromFile();
-        // Note: sliders won't update, restart app after load
-    }, &config);
-
     std::cout << "Starting air hockey robot defense..." << std::endl;
     std::cout << "Controls:" << std::endl;
     std::cout << "  Q: Quit" << std::endl;
     std::cout << "  F: Set table found" << std::endl;
     std::cout << "  L: Set table not found" << std::endl;
+    std::cout << "  S: Save config" << std::endl;
+    std::cout << "  R: Reload config (updates sliders)" << std::endl;
+    std::cout << "  D: Reset to default values" << std::endl;
     std::cout << "Use Parameter Controls window to adjust settings." << std::endl;
     std::cout << "Threshold Preview window shows real-time thresholding result." << std::endl;
-    std::cout << "Robot origin corner is visualized with a white circle in the main window." << std::endl;
+    std::cout << "Robot origin corner is visualized with a white circle and coordinate axes in the main window." << std::endl;
 
     bool running = true;
 
@@ -193,16 +184,16 @@ int main() {
         
         if (puckDetected) {
             // Draw puck
-            cv::circle(frame, puckCenter, 10, cv::Scalar(0, 255, 0), -1);  // Green circle
-            cv::putText(frame, "Puck", puckCenter + cv::Point2f(15, 0), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+            cv::circle(frame, puckCenter+cv::Point2f(50,50), 10, cv::Scalar(0, 255, 0), -1);  // Green circle
+            cv::putText(frame, "Puck", puckCenter + cv::Point2f(65, 50), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
         }
 
         if (predictedEntryTable.x >= 0 && predictedEntryTable.y >= 0) {
             
             // Draw predicted entry
             cv::Point2f predictedImage = capture.TableToImageCoordinates(predictedEntryTable, capture.getCroppedWidth(), capture.getCroppedHeight());
-            cv::circle(frame, predictedImage, 10, cv::Scalar(0, 0, 255), -1);  // Red circle
-            cv::putText(frame, "Predicted Entry", predictedImage + cv::Point2f(15, 0), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 1);
+            cv::circle(frame, predictedImage+cv::Point2f(50,50), 10, cv::Scalar(0, 0, 255), -1);  // Red circle
+            cv::putText(frame, "Predicted Entry", predictedImage + cv::Point2f(65, 50), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 1);
 
             // Move robot
             cv::Point2f robotPosInTable(predictedEntryTable.x, predictedEntryTable.y);
@@ -224,6 +215,31 @@ int main() {
          else if (key == 'l'){
             TableFound = false;
             capture.tableFound(false);
+        }
+        else if (key == 's' || key == 'S') {
+            config.saveToFile();
+        }
+        else if (key == 'd' || key == 'D') {
+            config.resetToDefaults();
+            // Update slider variables from default config
+            puck_threshold = config.PUCK_THRESHOLD;
+            puck_min_area = config.PUCK_MIN_AREA;
+            puck_max_area = config.PUCK_MAX_AREA;
+            defense_zone_height = (int)(config.DEFENSE_ZONE_HEIGHT * 10);
+            defense_zone_width = (int)(config.DEFENSE_ZONE_WIDTH * 10);
+            where_defense_zone = config.WHERE_DEFENSE_ZONE;
+            robot_origin_corner = config.robot_origin_corner;
+            // Update trackbar positions
+            cv::setTrackbarPos("PUCK_THRESHOLD", "Parameter Controls", puck_threshold);
+            cv::setTrackbarPos("PUCK_MIN_AREA", "Parameter Controls", puck_min_area);
+            cv::setTrackbarPos("PUCK_MAX_AREA", "Parameter Controls", puck_max_area);
+            cv::setTrackbarPos("DEFENSE_ZONE_HEIGHT*10", "Parameter Controls", defense_zone_height);
+            cv::setTrackbarPos("DEFENSE_ZONE_WIDTH*10", "Parameter Controls", defense_zone_width);
+            cv::setTrackbarPos("WHERE_DEFENSE_ZONE", "Parameter Controls", where_defense_zone);
+            cv::setTrackbarPos("ROBOT_ORIGIN_CORNER", "Parameter Controls", robot_origin_corner);
+            // Update predictor with default defense zone
+            predictor.setDefenseZone(where_defense_zone);
+            std::cout << "Config reset to defaults and sliders updated." << std::endl;
         }
         if (key == 'q' || key == 'Q') {
             running = false;

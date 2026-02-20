@@ -10,7 +10,7 @@ class Config {
 public:
     // Camera configuration
     int CAMERA_INDEX = 0;  // Camera device index
-    bool USE_LIBCAMERA_BOOL = true;  // For use in code
+    bool USE_LIBCAMERA_BOOL = false;  // For use in code
 
     // Calibration parameters
     int CHESSBOARD_WIDTH = 9;   // Number of internal corners per row
@@ -44,7 +44,7 @@ public:
     double TABLE_OFFSET_Y = 0.0;
     double TABLE_HEIGHT_Z = 0.0;             // Table height in mm
 
-    void loadFromFile(const std::string& filename = "config/config.json") {
+    void loadFromFile(const std::string& filename = "config.json") {
         try {
             std::ifstream file(filename);
             if (file.is_open()) {
@@ -60,7 +60,7 @@ public:
         }
     }
 
-    void saveToFile(const std::string& filename = "config/config.json") {
+    void saveToFile(const std::string& filename = "config.json") {
         try {
             nlohmann::json j = *this;
             std::ofstream file(filename);
@@ -69,6 +69,44 @@ public:
         } catch (const std::exception& e) {
             std::cerr << "Error saving config: " << e.what() << std::endl;
         }
+    }
+
+    void resetToDefaults() {
+        // Camera configuration
+        CAMERA_INDEX = 0;
+        USE_LIBCAMERA_BOOL = false;
+
+        // Calibration parameters
+        CHESSBOARD_WIDTH = 9;
+        CHESSBOARD_HEIGHT = 6;
+        SQUARE_SIZE = 25.0f;
+
+        // Image dimensions (pixels)
+        TABLE_WIDTH = 640;
+        TABLE_HEIGHT = 480;
+
+        // Physical table dimensions (mm)
+        PHYSICAL_TABLE_WIDTH = 505.0f;
+        PHYSICAL_TABLE_HEIGHT = 520.0f;
+        DEFENSE_ZONE_HEIGHT = 100.0f;
+        DEFENSE_ZONE_WIDTH = 200.0f;
+
+        WHERE_DEFENSE_ZONE = 3;
+        robot_origin_corner = 0;
+
+        // Puck parameters
+        PUCK_RADIUS_REAL = 15;
+        PUCK_RADIUS_MIN = 10;
+        PUCK_RADIUS_MAX = 30;
+        PUCK_THRESHOLD = 100;
+        PUCK_MIN_AREA = 150;
+        PUCK_MAX_AREA = 10000;
+
+        // Robot configuration
+        ROBOT_IP = "192.168.125.1";
+        TABLE_OFFSET_X = 0.0;
+        TABLE_OFFSET_Y = 0.0;
+        TABLE_HEIGHT_Z = 0.0;
     }
 
 private:
