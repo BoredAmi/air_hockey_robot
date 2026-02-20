@@ -25,7 +25,7 @@ cv::RotatedRect ImageCapture::detectTable(cv::Mat& image) {
     cv::drawContours(contourImg, contours, -1, cv::Scalar(0, 255, 0), 2);
 
     double maxArea = 0;
-    double minAreaThreshold = (image.rows * image.cols) * 0.3;  
+    double minAreaThreshold = (image.rows * image.cols) * 0.1;  
     cv::RotatedRect tableRotated;
 
     for (const auto& contour : contours) {
@@ -69,6 +69,8 @@ bool ImageCapture::initialize() {
     loadCalibration();
     // Try to load cached perspective data
     loadCachedPerspective();
+
+    
     return true;
 }
 
@@ -277,6 +279,7 @@ bool ImageCapture::loadCachedPerspective(const std::string& filename) {
     cachedTableRect_ = cv::Rect(rectX, rectY, rectWidth, rectHeight);
     cachedOutputSize_ = cv::Size(outWidth, outHeight);
     matrixCached_ = true;
+    tableFound_ = true;
 
     std::cout << "Cached perspective loaded from: " << filename << std::endl;
     return true;
