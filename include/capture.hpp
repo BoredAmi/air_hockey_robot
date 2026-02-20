@@ -8,7 +8,7 @@
 
 class ImageCapture {
 public:
-    ImageCapture(int cameraIndex = CAMERA_INDEX);
+    ImageCapture(const Config& config);
     ~ImageCapture();
     cv::RotatedRect detectTable(cv::Mat& image);
     bool initialize();
@@ -37,6 +37,7 @@ private:
     cv::Mat cachedPerspective_;
     cv::Rect cachedTableRect_;
     cv::Size cachedOutputSize_;
+    const Config& config_;
 };
 
 #endif // CAPTURE_HPP

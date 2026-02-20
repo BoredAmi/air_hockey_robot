@@ -12,14 +12,21 @@ struct PuckPosition {
 
 class TrajectoryPredictor {
 public:
-    TrajectoryPredictor();
+    TrajectoryPredictor(const Config& config);
     void addMeasurement(const PuckPosition& measurement);
     cv::Point2f predictPosition(uint64_t futureTimestamp);
     cv::Point2f predictEntryToDefenseZone(uint64_t currentTimestamp);
     void reset();  // Reset for lost puck
-    double zoneYMax, zoneYMin, zoneXMin, zoneXMax;
     bool isInDefenseZone(const cv::Point2f& pos);
-private:
+    void setDefenseZone(int zoneIndex); 
+    double getDefenseZoneXMin() const { return zoneXMin; }
+    double getDefenseZoneXMax() const { return zoneXMax; }
+    double getDefenseZoneYMin() const { return zoneYMin; }
+    double getDefenseZoneYMax() const { return zoneYMax; }
+    private:
+    const Config& config_;
+    int currentZoneIndex_;
+    double zoneYMax, zoneYMin, zoneXMin, zoneXMax;
     KalmanFilter kalmanFilter_;
     uint64_t lastTimestamp_;
     bool initialized_;

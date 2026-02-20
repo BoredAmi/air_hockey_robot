@@ -2,8 +2,8 @@
 #include <iostream>
 #include <fstream>
 
-CameraCalibration::CameraCalibration(int cameraIndex)
-    : cameraIndex_(cameraIndex), boardSize_(CHESSBOARD_WIDTH, CHESSBOARD_HEIGHT), squareSize_(SQUARE_SIZE) {}
+CameraCalibration::CameraCalibration(const Config& config)
+    : config_(config), cameraIndex_(config.CAMERA_INDEX), boardSize_(config.CHESSBOARD_WIDTH, config.CHESSBOARD_HEIGHT), squareSize_(config.SQUARE_SIZE) {}
 
 CameraCalibration::~CameraCalibration() {
     if (cap_.isOpened()) {
@@ -12,10 +12,19 @@ CameraCalibration::~CameraCalibration() {
 }
 
 bool CameraCalibration::initialize() {
-    cap_.open(cameraIndex_);
-    if (!cap_.isOpened()) {
-        std::cerr << "Error: Could not open camera " << cameraIndex_ << std::endl;
-        return false;
+    if (config_.USE_LIBCAMERA_BOOL) {
+        std::string pipeline = "libcamerasrc ! video/x-raw,format=BGR,width=1640,height=1232 ! appsink sync=false";
+        cap_.open(pipeline, cv::CAP_GSTREAMER);
+        if (!cap_.isOpened()) {
+            std::cerr << "Error: Could not open camera with GStreamer pipeline" << std::endl;
+            return false;
+        }
+    } else {
+        cap_.open(cameraIndex_);
+        if (!cap_.isOpened()) {
+            std::cerr << "Error: Could not open camera " << cameraIndex_ << std::endl;
+            return false;
+        }
     }
     return true;
 }

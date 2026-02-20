@@ -8,7 +8,7 @@
 
 class CameraCalibration {
 public:
-    CameraCalibration(int cameraIndex = CAMERA_INDEX);
+    CameraCalibration(const Config& config);
     ~CameraCalibration();
     
     bool initialize();
@@ -29,6 +29,7 @@ private:
     cv::Mat distCoeffs_;
     cv::Size boardSize_;  // Chessboard size (corners per row/column)
     float squareSize_;    // Size of chessboard squares in mm
+    const Config& config_;
 
     std::vector<cv::Point3f> createObjectPoints();
 };

@@ -20,13 +20,14 @@
 
 class MovementController {
 public:
-    MovementController();
+    MovementController(const Config& config);
     ~MovementController();
     void moveTo(cv::Point2f tablePosition);
     void stop();
     cv::Point2f TableToRobotCoordinates(cv::Point2f tablePosition);
 
 private:
+    const Config& config_;
 #ifdef _WIN32
     SOCKET robotSocket;
 #else

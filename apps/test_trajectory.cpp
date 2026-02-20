@@ -8,9 +8,10 @@
 
 int main() {
     std::cout << "Starting trajectory prediction test..." << std::endl;
-
-    ImageCapture capture(CAMERA_INDEX); 
-    TrajectoryPredictor predictor;
+    Config config;
+    config.loadFromFile();
+    ImageCapture capture(config); 
+    TrajectoryPredictor predictor(config);
 
     std::vector<std::string> filenames = {"../img/1.png", "../img/2.png", "../img/3.png", "../img/4.png"};
     uint64_t baseTimestamp = 1000000;  // Start at 1 second (microseconds)

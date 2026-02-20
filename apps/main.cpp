@@ -8,16 +8,18 @@
 #include <string>
 
 int main() {
+    Config config;
+    config.loadFromFile();
     bool TableFound = false;
     cv::setUseOptimized(true);
-    ImageCapture capture(CAMERA_INDEX);  
+    ImageCapture capture(config);  
     if (!capture.initialize()) {
         std::cerr << "Failed to initialize camera." << std::endl;
         return -1;
     }
 
-    TrajectoryPredictor predictor;
-    MovementController mover;
+    TrajectoryPredictor predictor(config);
+    MovementController mover(config);
 
     cv::namedWindow("Air Hockey Defense", cv::WINDOW_NORMAL);
     cv::resizeWindow("Air Hockey Defense", 1280, 720);
@@ -61,23 +63,9 @@ int main() {
         // Draw defense zone
 
         
-        cv::Point2f zoneTopLeft = capture.TableToImageCoordinates(cv::Point2f(predictor.zoneXMin, predictor.zoneYMin), capture.getCroppedWidth(), capture.getCroppedHeight());
-        cv::Point2f zoneBottomRight = capture.TableToImageCoordinates(cv::Point2f(predictor.zoneXMax, predictor.zoneYMax), capture.getCroppedWidth(), capture.getCroppedHeight());
+        cv::Point2f zoneTopLeft = capture.TableToImageCoordinates(cv::Point2f(predictor.getDefenseZoneXMin(), predictor.getDefenseZoneYMin()), capture.getCroppedWidth(), capture.getCroppedHeight());
+        cv::Point2f zoneBottomRight = capture.TableToImageCoordinates(cv::Point2f(predictor.getDefenseZoneXMax(), predictor.getDefenseZoneYMax()), capture.getCroppedWidth(), capture.getCroppedHeight());
         cv::rectangle(frame, zoneTopLeft, zoneBottomRight, cv::Scalar(255, 0, 0), 2);  // Blue rectangle for zone
-
-        // Draw corners of the table
-        cv::Point2f topLeft = capture.TableToImageCoordinates(cv::Point2f(0, 0), capture.getCroppedWidth(), capture.getCroppedHeight());
-        cv::Point2f topRight = capture.TableToImageCoordinates(cv::Point2f(PHYSICAL_TABLE_WIDTH, 0), capture.getCroppedWidth(), capture.getCroppedHeight());
-        cv::Point2f bottomLeft = capture.TableToImageCoordinates(cv::Point2f(0, PHYSICAL_TABLE_HEIGHT), capture.getCroppedWidth(), capture.getCroppedHeight());
-        cv::Point2f bottomRight = capture.TableToImageCoordinates(cv::Point2f(PHYSICAL_TABLE_WIDTH, PHYSICAL_TABLE_HEIGHT), capture.getCroppedWidth(), capture.getCroppedHeight());
-        cv::circle(frame, topLeft, 5, cv::Scalar(255, 255, 0), -1);  // every corner in different color with label
-        cv::circle(frame, topRight, 5, cv::Scalar(255, 0, 255), -1);
-        cv::circle(frame, bottomLeft, 5, cv::Scalar(0, 255, 255), -1);
-        cv::circle(frame, bottomRight, 5, cv::Scalar(0, 0, 255), -1);
-        cv::putText(frame, "Top Left", topLeft + cv::Point2f(15, 0), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 0), 1);
-        cv::putText(frame, "Top Right", topRight + cv::Point2f(15, 0), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 0, 255), 1);
-        cv::putText(frame, "Bottom Left", bottomLeft + cv::Point2f(15, 0), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 255), 1);
-        cv::putText(frame, "Bottom Right", bottomRight + cv::Point2f(15, 0), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 1);
 
         if (puckDetected) {
             // Draw puck

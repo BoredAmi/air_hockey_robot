@@ -5,7 +5,9 @@
 
 int main() {
     try {
-        MovementController controller;
+        Config config;
+        config.loadFromFile();
+        MovementController controller(config);
 
         std::cout << "Connected to robot. Starting movement test..." << std::endl;
 

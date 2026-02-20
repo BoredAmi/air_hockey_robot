@@ -3,7 +3,9 @@
 #include <string>
 
 int main() {
-    CameraCalibration calibrator; // Uses CAMERA_INDEX from config
+    Config config;
+    config.loadFromFile();
+    CameraCalibration calibrator(config); // Uses config
 
     if (!calibrator.initialize()) {
         std::cerr << "Failed to initialize camera for calibration." << std::endl;

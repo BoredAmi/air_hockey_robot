@@ -1,37 +1,8 @@
 #include "trajectory.hpp"
 
-TrajectoryPredictor::TrajectoryPredictor() : kalmanFilter_(), lastTimestamp_(0), initialized_(false) {
+TrajectoryPredictor::TrajectoryPredictor(const Config& config) : config_(config), currentZoneIndex_(config.WHERE_DEFENSE_ZONE), kalmanFilter_(), lastTimestamp_(0), initialized_(false) {
         // Defense zone bounds
-    switch (WHERE_DEFENSE_ZONE) {
-    case 0: // Left defense zone
-        zoneYMin = (PHYSICAL_TABLE_HEIGHT - DEFENSE_ZONE_WIDTH) / 2.0;
-        zoneYMax = (PHYSICAL_TABLE_HEIGHT + DEFENSE_ZONE_WIDTH) / 2.0;
-        zoneXMin = 0;
-        zoneXMax = DEFENSE_ZONE_HEIGHT;
-        break;
-    case 1: // Right defense zone
-        zoneYMin = (PHYSICAL_TABLE_HEIGHT - DEFENSE_ZONE_WIDTH) / 2.0;
-        zoneYMax = (PHYSICAL_TABLE_HEIGHT + DEFENSE_ZONE_WIDTH) / 2.0;
-        zoneXMin = PHYSICAL_TABLE_WIDTH - DEFENSE_ZONE_HEIGHT;
-        zoneXMax = PHYSICAL_TABLE_WIDTH;
-        break;
-    case 2: // Bottom defense zone
-        zoneYMin = 0;
-        zoneYMax = DEFENSE_ZONE_HEIGHT;
-        zoneXMin = (PHYSICAL_TABLE_WIDTH - DEFENSE_ZONE_WIDTH) / 2.0;
-        zoneXMax = (PHYSICAL_TABLE_WIDTH + DEFENSE_ZONE_WIDTH) / 2.0;
-
-        break;
-    case 3: // Top defense zone
-        zoneYMin = PHYSICAL_TABLE_HEIGHT - DEFENSE_ZONE_HEIGHT;
-        zoneYMax = PHYSICAL_TABLE_HEIGHT;
-        zoneXMin = (PHYSICAL_TABLE_WIDTH - DEFENSE_ZONE_WIDTH) / 2.0;
-        zoneXMax = (PHYSICAL_TABLE_WIDTH + DEFENSE_ZONE_WIDTH) / 2.0;
-        break;
-    
-    default:
-        break;
-    }
+    setDefenseZone(config.WHERE_DEFENSE_ZONE);
 }
 
 void TrajectoryPredictor::addMeasurement(const PuckPosition& measurement) {
@@ -77,9 +48,9 @@ cv::Point2f TrajectoryPredictor::predictPosition(uint64_t futureTimestamp) {
     for (int bounce = 0; bounce < maxBounces && timeLeft > 0; ++bounce) {
         // Calculate time to hit each boundary
         double tx_left = (vx != 0) ? ((vx < 0) ? (0 - pos.x) / vx : 1e9) : 1e9;  // Hit left wall if moving left
-        double tx_right = (vx != 0) ? ((vx > 0) ? (PHYSICAL_TABLE_WIDTH - pos.x) / vx : 1e9) : 1e9;  // Hit right wall if moving right
+        double tx_right = (vx != 0) ? ((vx > 0) ? (config_.PHYSICAL_TABLE_WIDTH - pos.x) / vx : 1e9) : 1e9;  // Hit right wall if moving right
         double ty_bottom = (vy != 0) ? ((vy < 0) ? (0 - pos.y) / vy : 1e9) : 1e9;  // Hit bottom wall if moving down
-        double ty_top = (vy != 0) ? ((vy > 0) ? (PHYSICAL_TABLE_HEIGHT - pos.y) / vy : 1e9) : 1e9;  // Hit top wall if moving up
+        double ty_top = (vy != 0) ? ((vy > 0) ? (config_.PHYSICAL_TABLE_HEIGHT - pos.y) / vy : 1e9) : 1e9;  // Hit top wall if moving up
 
 
         // Find the earliest hit time within remaining time
@@ -92,7 +63,7 @@ cv::Point2f TrajectoryPredictor::predictPosition(uint64_t futureTimestamp) {
         timeLeft -= t_hit;
 
         if (timeLeft <= 0) break;  // Reached target time
-        switch (WHERE_DEFENSE_ZONE) //prevent bouncing at the oposite side to the defense zone
+        switch (currentZoneIndex_) //prevent bouncing at the oposite side to the defense zone
         {
         case 0: // Left defense zone reflect velocity at boundary except for right wall
                 if (t_hit == tx_left) vx = -vx;
@@ -121,9 +92,9 @@ cv::Point2f TrajectoryPredictor::predictPosition(uint64_t futureTimestamp) {
 
     // Clamp to bounds if still out (rare)
     if (pos.x < 0) pos.x = 0;
-    if (pos.x > PHYSICAL_TABLE_WIDTH) pos.x = PHYSICAL_TABLE_WIDTH;
+    if (pos.x > config_.PHYSICAL_TABLE_WIDTH) pos.x = config_.PHYSICAL_TABLE_WIDTH;
     if (pos.y < 0) pos.y = 0;
-    if (pos.y > PHYSICAL_TABLE_HEIGHT) pos.y = PHYSICAL_TABLE_HEIGHT;
+    if (pos.y > config_.PHYSICAL_TABLE_HEIGHT) pos.y = config_.PHYSICAL_TABLE_HEIGHT;
 
     return pos;
 }
@@ -161,23 +132,23 @@ cv::Point2f TrajectoryPredictor::predictEntryToDefenseZone(uint64_t currentTimes
                 return cv::Point2f(entryX, entryY);
             }
             // Check for boundary hits and reflect
-            switch (WHERE_DEFENSE_ZONE) //prevent bouncing at the oposite side to the defense zone
+            switch (currentZoneIndex_) //prevent bouncing at the oposite side to the defense zone
             {
             case 0: // Left defense zone reflect velocity at boundary except for right wall
                     if (nextPos.x <= 0 ) vx = -vx;
-                    if (nextPos.y <= 0 || nextPos.y >= PHYSICAL_TABLE_HEIGHT) vy = -vy;
+                    if (nextPos.y <= 0 || nextPos.y >= config_.PHYSICAL_TABLE_HEIGHT) vy = -vy;
                 break;
             case 1: // Right defense zone
-                    if (nextPos.x >= PHYSICAL_TABLE_WIDTH) vx = -vx;
-                    if (nextPos.y <= 0 || nextPos.y >= PHYSICAL_TABLE_HEIGHT) vy = -vy;
+                    if (nextPos.x >= config_.PHYSICAL_TABLE_WIDTH) vx = -vx;
+                    if (nextPos.y <= 0 || nextPos.y >= config_.PHYSICAL_TABLE_HEIGHT) vy = -vy;
                 break;
             case 2: // Bottom defense zone
-                    if (nextPos.y >= PHYSICAL_TABLE_HEIGHT) vy = -vy;
-                    if (nextPos.x <= 0 || nextPos.x >= PHYSICAL_TABLE_WIDTH) vx = -vx;
+                    if (nextPos.y >= config_.PHYSICAL_TABLE_HEIGHT) vy = -vy;
+                    if (nextPos.x <= 0 || nextPos.x >= config_.PHYSICAL_TABLE_WIDTH) vx = -vx;
                 break;
             case 3: // Top defense zone
                     if (nextPos.y <= 0) vy = -vy;
-                    if (nextPos.x <= 0 || nextPos.x >= PHYSICAL_TABLE_WIDTH) vx = -vx;    
+                    if (nextPos.x <= 0 || nextPos.x >= config_.PHYSICAL_TABLE_WIDTH) vx = -vx;    
                 break;  
             default:
                     didnthitboundary = true;
@@ -203,4 +174,37 @@ void TrajectoryPredictor::reset() {
 }
 bool TrajectoryPredictor::isInDefenseZone(const cv::Point2f& pos) {
     return (pos.y <= zoneYMax && pos.y >= zoneYMin && pos.x >= zoneXMin && pos.x <= zoneXMax);
+}
+void TrajectoryPredictor::setDefenseZone(int zoneIndex) {
+    currentZoneIndex_ = zoneIndex;
+    switch (currentZoneIndex_) {
+    case 0: // Left defense zone
+        zoneYMin = (config_.PHYSICAL_TABLE_HEIGHT - config_.DEFENSE_ZONE_WIDTH) / 2.0;
+        zoneYMax = (config_.PHYSICAL_TABLE_HEIGHT + config_.DEFENSE_ZONE_WIDTH) / 2.0;
+        zoneXMin = 0;
+        zoneXMax = config_.DEFENSE_ZONE_HEIGHT;
+        break;
+    case 1: // Right defense zone
+        zoneYMin = (config_.PHYSICAL_TABLE_HEIGHT - config_.DEFENSE_ZONE_WIDTH) / 2.0;
+        zoneYMax = (config_.PHYSICAL_TABLE_HEIGHT + config_.DEFENSE_ZONE_WIDTH) / 2.0;
+        zoneXMin = config_.PHYSICAL_TABLE_WIDTH - config_.DEFENSE_ZONE_HEIGHT;
+        zoneXMax = config_.PHYSICAL_TABLE_WIDTH;
+        break;
+    case 2: // Bottom defense zone
+        zoneYMin = 0;
+        zoneYMax = config_.DEFENSE_ZONE_HEIGHT;
+        zoneXMin = (config_.PHYSICAL_TABLE_WIDTH - config_.DEFENSE_ZONE_WIDTH) / 2.0;
+        zoneXMax = (config_.PHYSICAL_TABLE_WIDTH + config_.DEFENSE_ZONE_WIDTH) / 2.0;
+
+        break;
+    case 3: // Top defense zone
+        zoneYMin = config_.PHYSICAL_TABLE_HEIGHT - config_.DEFENSE_ZONE_HEIGHT;
+        zoneYMax = config_.PHYSICAL_TABLE_HEIGHT;
+        zoneXMin = (config_.PHYSICAL_TABLE_WIDTH - config_.DEFENSE_ZONE_WIDTH) / 2.0;
+        zoneXMax = (config_.PHYSICAL_TABLE_WIDTH + config_.DEFENSE_ZONE_WIDTH) / 2.0;
+        break;
+    
+    default:
+        break;
+    }
 }

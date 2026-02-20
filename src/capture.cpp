@@ -1,7 +1,7 @@
 #include "capture.hpp"
 #include <iostream>
 
-ImageCapture::ImageCapture(int cameraIndex) : cameraIndex_(cameraIndex), croppedWidth_(TABLE_WIDTH), croppedHeight_(TABLE_HEIGHT), tableFound_(false), matrixCached_(false) {}
+ImageCapture::ImageCapture(const Config& config) : config_(config), cameraIndex_(config.CAMERA_INDEX), croppedWidth_(config.TABLE_WIDTH), croppedHeight_(config.TABLE_HEIGHT), tableFound_(false), matrixCached_(false) {}
 
 ImageCapture::~ImageCapture() {
     if (cap_.isOpened()) {
@@ -51,7 +51,7 @@ cv::RotatedRect ImageCapture::detectTable(cv::Mat& image) {
 }
 
 bool ImageCapture::initialize() {
-    if (USE_LIBCAMERA_BOOL) {
+    if (config_.USE_LIBCAMERA_BOOL) {
         std::string pipeline = "libcamerasrc ! video/x-raw,format=BGR,width=1640,height=1232 ! appsink sync=false";
         cap_.open(pipeline, cv::CAP_GSTREAMER);
         if (!cap_.isOpened()) {
@@ -59,9 +59,9 @@ bool ImageCapture::initialize() {
             return false;
         }
     } else {
-        cap_.open(CAMERA_INDEX);
+        cap_.open(config_.CAMERA_INDEX);
         if (!cap_.isOpened()) {
-            std::cerr << "Error: Could not open camera " << CAMERA_INDEX << std::endl;
+            std::cerr << "Error: Could not open camera " << config_.CAMERA_INDEX << std::endl;
             return false;
         }
     }
@@ -139,14 +139,14 @@ bool ImageCapture::saveImage(const cv::Mat& image, const std::string& filename) 
 
 cv::Point2f ImageCapture::detectPuck(const cv::Mat& grayImage) {
     cv::Mat thresh;
-    cv::threshold(grayImage, thresh, PUCK_THRESHOLD, 255, cv::THRESH_BINARY_INV);  // Invert for black puck
+    cv::threshold(grayImage, thresh, config_.PUCK_THRESHOLD, 255, cv::THRESH_BINARY_INV);  // Invert for black puck
 
     std::vector<std::vector<cv::Point>> contours;
     cv::findContours(thresh, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
     for (const auto& contour : contours) {
         double area = cv::contourArea(contour);
-        if (area < PUCK_MIN_AREA || area > PUCK_MAX_AREA) continue;
+        if (area < config_.PUCK_MIN_AREA || area > config_.PUCK_MAX_AREA) continue;
 
         double perimeter = cv::arcLength(contour, true);
         double circularity = 4 * CV_PI * area / (perimeter * perimeter);
@@ -162,14 +162,14 @@ cv::Point2f ImageCapture::detectPuck(const cv::Mat& grayImage) {
 }
 
 cv::Point2f ImageCapture::imageToTableCoordinates(cv::Point2f imagePoint, int imageWidth, int imageHeight) {
-    if (imageWidth == 0) imageWidth = TABLE_WIDTH;
-    if (imageHeight == 0) imageHeight = TABLE_HEIGHT;
+    if (imageWidth == 0) imageWidth = config_.TABLE_WIDTH;
+    if (imageHeight == 0) imageHeight = config_.TABLE_HEIGHT;
     // First, undistort the point if calibration is available
     cv::Point2f undistortedPoint = undistortPoint(imagePoint);
 
     // Scale factors from image pixels to physical units (mm)
-    float scaleX = PHYSICAL_TABLE_WIDTH / imageWidth;
-    float scaleY = PHYSICAL_TABLE_HEIGHT / imageHeight;
+    float scaleX = config_.PHYSICAL_TABLE_WIDTH / imageWidth;
+    float scaleY = config_.PHYSICAL_TABLE_HEIGHT / imageHeight;
 
     // Origin at bottom-left corner of table
     float tableX = undistortedPoint.x * scaleX;
@@ -179,11 +179,11 @@ cv::Point2f ImageCapture::imageToTableCoordinates(cv::Point2f imagePoint, int im
     return cv::Point2f(tableX, tableY);
 }
 cv::Point2f ImageCapture::TableToImageCoordinates(cv::Point2f tablePoint, int imageWidth, int imageHeight) {
-    if (imageWidth == 0) imageWidth = TABLE_WIDTH;
-    if (imageHeight == 0) imageHeight = TABLE_HEIGHT;
+    if (imageWidth == 0) imageWidth = config_.TABLE_WIDTH;
+    if (imageHeight == 0) imageHeight = config_.TABLE_HEIGHT;
     // Scale factors from physical units (mm) to image pixels
-    float scaleX = imageWidth / PHYSICAL_TABLE_WIDTH;
-    float scaleY = imageHeight / PHYSICAL_TABLE_HEIGHT;
+    float scaleX = imageWidth / config_.PHYSICAL_TABLE_WIDTH;
+    float scaleY = imageHeight / config_.PHYSICAL_TABLE_HEIGHT;
 
     // Convert table coordinates back to image coordinates (origin at bottom-left)
     float imageX = tablePoint.x * scaleX;

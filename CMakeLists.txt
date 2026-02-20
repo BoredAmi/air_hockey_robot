@@ -5,8 +5,9 @@ set(CMAKE_CXX_STANDARD 17)
 
 set(OpenCV_DIR "C:/msys64/mingw64/share/opencv4")
 
-
 find_package(OpenCV REQUIRED)
+
+find_package(nlohmann_json REQUIRED)
 
 if(NOT WIN32)
     
@@ -25,7 +26,7 @@ add_executable(air_hockey_robot apps/main.cpp src/capture.cpp src/calibration.cp
 if(WIN32)
     target_link_libraries(air_hockey_robot ${OpenCV_LIBS} Eigen3::Eigen ws2_32)
 else()
-    target_link_libraries(air_hockey_robot ${OpenCV_LIBS} Eigen3::Eigen ${LIBCAMERA_LIBRARIES})
+    target_link_libraries(air_hockey_robot ${OpenCV_LIBS} Eigen3::Eigen)
 endif()
 include_directories(
     include
@@ -44,14 +45,6 @@ include_directories(
     ${LIBCAMERA_INCLUDE_DIRS}
 )
 
-add_executable(test_puck_detection apps/test_puck_detection.cpp src/capture.cpp src/calibration.cpp)
-target_link_libraries(test_puck_detection ${OpenCV_LIBS} ${LIBCAMERA_LIBRARIES})
-include_directories(
-    include
-    config
-    ${OpenCV_INCLUDE_DIRS}
-    ${LIBCAMERA_INCLUDE_DIRS}
-)
 
 
 add_executable(test_trajectory apps/test_trajectory.cpp src/capture.cpp src/calibration.cpp src/kalman.cpp src/trajectory.cpp)
@@ -94,4 +87,18 @@ include_directories(
     config
     ${OpenCV_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}
+)
+
+add_executable(config_tuner apps/config_tuner.cpp src/capture.cpp src/calibration.cpp src/kalman.cpp src/trajectory.cpp src/movement.cpp)
+if(WIN32)
+    target_link_libraries(config_tuner ${OpenCV_LIBS} Eigen3::Eigen ws2_32)
+else()
+    target_link_libraries(config_tuner ${OpenCV_LIBS} Eigen3::Eigen ${LIBCAMERA_LIBRARIES})
+endif()
+include_directories(
+    include
+    config
+    ${OpenCV_INCLUDE_DIRS}
+    ${EIGEN3_INCLUDE_DIR}
+    ${LIBCAMERA_INCLUDE_DIRS}
 )

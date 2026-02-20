@@ -4,7 +4,7 @@
 #include <sstream>
 #include <stdexcept>
 
-MovementController::MovementController() : robotSocket(
+MovementController::MovementController(const Config& config) : config_(config), robotSocket(
 #ifdef _WIN32
     INVALID_SOCKET
 #else
@@ -72,7 +72,7 @@ bool MovementController::connectToRobot() {
     hints.ai_protocol = IPPROTO_UDP;
 
     // Resolve the server address and port
-    int iResult = getaddrinfo(ROBOT_IP.c_str(), "1025", &hints, &result);
+    int iResult = getaddrinfo(config_.ROBOT_IP.c_str(), "1025", &hints, &result);
     if (iResult != 0) {
         std::cerr << "getaddrinfo failed: " << iResult << std::endl;
         return false;
@@ -170,22 +170,22 @@ void MovementController::disconnect() {
 cv::Point2f MovementController::TableToRobotCoordinates(cv::Point2f tablePosition) {
     // Assuming robot origin is at bottom-right corner of the table if rotation is 0, adjust based on rotation
     float robotX, robotY;
-    switch (robot_origin_corner) {
+    switch (config_.robot_origin_corner) {
     case 0: // top-left
         robotX = tablePosition.x;
         robotY = tablePosition.y;
         break;
     case 1: // top-right
-        robotX = PHYSICAL_TABLE_WIDTH - tablePosition.x;
+        robotX = config_.PHYSICAL_TABLE_WIDTH - tablePosition.x;
         robotY = tablePosition.y;
         break;
     case 2: // bottom-left
         robotX = tablePosition.x;
-        robotY = PHYSICAL_TABLE_HEIGHT - tablePosition.y;
+        robotY = config_.PHYSICAL_TABLE_HEIGHT - tablePosition.y;
         break;
     case 3: // bottom-right
-        robotX = PHYSICAL_TABLE_WIDTH - tablePosition.x;
-        robotY = PHYSICAL_TABLE_HEIGHT - tablePosition.y;
+        robotX = config_.PHYSICAL_TABLE_WIDTH - tablePosition.x;
+        robotY = config_.PHYSICAL_TABLE_HEIGHT - tablePosition.y;
         break;
     default:
         robotX = tablePosition.x;

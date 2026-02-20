@@ -5,7 +5,9 @@
 
 int main() {
     cv::setUseOptimized(true);
-    ImageCapture capture(CAMERA_INDEX);  
+    Config config;
+    config.loadFromFile();
+    ImageCapture capture(config);  
     if (!capture.initialize()) {
         std::cerr << "Failed to initialize camera." << std::endl;
         return -1;
@@ -14,7 +16,7 @@ int main() {
     cv::namedWindow("Live Puck Detection", cv::WINDOW_NORMAL);
     cv::resizeWindow("Live Puck Detection", 1280, 720);
 
-    TrajectoryPredictor predictor;
+    TrajectoryPredictor predictor(config);
 
     bool running = true;
     bool paused = false;
