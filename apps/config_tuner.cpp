@@ -143,6 +143,13 @@ int main() {
         cv::putText(frame, "BL", bottomLeft + cv::Point2f(20, 35), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 255), 1);
         cv::putText(frame, "BR", bottomRight + cv::Point2f(20, 35), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 1);
 
+        // Draw table width and height indicators
+        cv::line(frame, topLeft + cv::Point2f(50, 50), topRight + cv::Point2f(50, 50), cv::Scalar(255, 255, 0), 2);
+        cv::putText(frame, "Table Width", (topLeft + topRight) * 0.5f + cv::Point2f(50, 30), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 255, 0), 2);
+        
+        cv::line(frame, topLeft + cv::Point2f(50, 50), bottomLeft + cv::Point2f(50, 50), cv::Scalar(255, 0, 255), 2);
+        cv::putText(frame, "Table Height", (topLeft + bottomLeft) * 0.5f + cv::Point2f(-120, 50), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 0, 255), 2);
+
         // Visualize robot origin corner
         cv::Point2f robotOriginPoint;
         std::string robotOriginLabel;
@@ -152,25 +159,25 @@ int main() {
             robotOriginPoint = topLeft + cv::Point2f(50, 50);
             robotOriginLabel = "Robot Origin (TL)";
             axisXEnd = robotOriginPoint + cv::Point2f(100, 0);  // X axis to the right
-            axisYEnd = robotOriginPoint + cv::Point2f(0, 100);  // Y axis down
+            axisYEnd = robotOriginPoint + cv::Point2f(0, -100);  // Y axis up
             break;
         case 1: // top-right
             robotOriginPoint = topRight + cv::Point2f(50, 50);
             robotOriginLabel = "Robot Origin (TR)";
             axisXEnd = robotOriginPoint + cv::Point2f(-100, 0);  // X axis to the left
-            axisYEnd = robotOriginPoint + cv::Point2f(0, 100);  // Y axis down
+            axisYEnd = robotOriginPoint + cv::Point2f(0, -100);  // Y axis up
             break;
         case 2: // bottom-left
             robotOriginPoint = bottomLeft + cv::Point2f(50, 50);
             robotOriginLabel = "Robot Origin (BL)";
             axisXEnd = robotOriginPoint + cv::Point2f(100, 0);  // X axis to the right
-            axisYEnd = robotOriginPoint + cv::Point2f(0, -100); // Y axis up
+            axisYEnd = robotOriginPoint + cv::Point2f(0, 100); // Y axis down
             break;
         case 3: // bottom-right
             robotOriginPoint = bottomRight + cv::Point2f(50, 50);
             robotOriginLabel = "Robot Origin (BR)";
             axisXEnd = robotOriginPoint + cv::Point2f(-100, 0);  // X axis to the left
-            axisYEnd = robotOriginPoint + cv::Point2f(0, -100); // Y axis up
+            axisYEnd = robotOriginPoint + cv::Point2f(0, 100); // Y axis up
             break;
         default:
             robotOriginPoint = topLeft + cv::Point2f(50, 50);
@@ -181,6 +188,12 @@ int main() {
         }
         cv::circle(frame, robotOriginPoint, 15, cv::Scalar(255, 255, 255), 3);  // White circle with thick border
         cv::putText(frame, robotOriginLabel, robotOriginPoint + cv::Point2f(20, -10), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 255, 255), 2);
+        
+        // Draw coordinate axes
+        cv::arrowedLine(frame, robotOriginPoint, axisXEnd, cv::Scalar(0, 0, 255), 2, cv::LINE_AA, 0, 0.1); // Red X axis
+        cv::arrowedLine(frame, robotOriginPoint, axisYEnd, cv::Scalar(0, 255, 0), 2, cv::LINE_AA, 0, 0.1); // Green Y axis
+        cv::putText(frame, "X", axisXEnd + cv::Point2f(5, -5), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 2);
+        cv::putText(frame, "Y", axisYEnd + cv::Point2f(-15, 5), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 2);
         
         if (puckDetected) {
             // Draw puck

@@ -168,22 +168,24 @@ void MovementController::disconnect() {
     connected = false;
 }
 cv::Point2f MovementController::TableToRobotCoordinates(cv::Point2f tablePosition) {
-    // Assuming robot origin is at bottom-right corner of the table if rotation is 0, adjust based on rotation
+    // Convert table coordinates to robot coordinates based on origin corner
+    // Robot coordinates: X increases in the direction shown by red arrow, Y increases in direction shown by green arrow
     float robotX, robotY;
     switch (config_.robot_origin_corner) {
-    case 0: // top-left
-        robotX = tablePosition.x;
-        robotY = tablePosition.y;
-        break;
-    case 1: // top-right
-        robotX = config_.PHYSICAL_TABLE_WIDTH - tablePosition.x;
-        robotY = tablePosition.y;
-        break;
-    case 2: // bottom-left
+    
+    case 0: // top-left: X right, Y up
         robotX = tablePosition.x;
         robotY = config_.PHYSICAL_TABLE_HEIGHT - tablePosition.y;
         break;
-    case 3: // bottom-right
+    case 1: // top-right: X left, Y up
+        robotX = config_.PHYSICAL_TABLE_WIDTH - tablePosition.x;
+        robotY = tablePosition.y;
+        break;
+    case 2: // bottom-left: X right, Y down
+        robotX = tablePosition.x;
+        robotY = tablePosition.y;
+        break;
+    case 3: // bottom-right: X left, Y up
         robotX = config_.PHYSICAL_TABLE_WIDTH - tablePosition.x;
         robotY = config_.PHYSICAL_TABLE_HEIGHT - tablePosition.y;
         break;

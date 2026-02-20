@@ -20,6 +20,8 @@ public:
     cv::Point2f TableToImageCoordinates(cv::Point2f tablePoint, int imageWidth, int imageHeight);
     bool loadCalibration(const std::string& filename = "camera_calibration.yml");
     cv::Point2f undistortPoint(cv::Point2f distortedPoint);
+    bool saveCachedPerspective(const std::string& filename = "table_perspective.yml");
+    bool loadCachedPerspective(const std::string& filename = "table_perspective.yml");
     int getCroppedWidth() const { return croppedWidth_; }
     int getCroppedHeight() const { return croppedHeight_; }
     void tableFound(bool found) { tableFound_ = found; }

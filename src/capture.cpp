@@ -25,7 +25,7 @@ cv::RotatedRect ImageCapture::detectTable(cv::Mat& image) {
     cv::drawContours(contourImg, contours, -1, cv::Scalar(0, 255, 0), 2);
 
     double maxArea = 0;
-    double minAreaThreshold = (image.rows * image.cols) * 0.1;  
+    double minAreaThreshold = (image.rows * image.cols) * 0.3;  
     cv::RotatedRect tableRotated;
 
     for (const auto& contour : contours) {
@@ -67,6 +67,8 @@ bool ImageCapture::initialize() {
     }
     // Try to load calibration data
     loadCalibration();
+    // Try to load cached perspective data
+    loadCachedPerspective();
     return true;
 }
 
@@ -100,6 +102,7 @@ cv::Mat ImageCapture::captureImage() {
                 cachedPerspective_ = cv::getPerspectiveTransform(srcPoints, dstPoints);
                 if (tableFound_){
                     matrixCached_ = true;
+                    saveCachedPerspective();
                 }
             }
         } else {
@@ -227,4 +230,54 @@ cv::Point2f ImageCapture::undistortPoint(cv::Point2f distortedPoint) {
     cv::undistortPoints(points, points, cameraMatrix_, distCoeffs_, cv::noArray(), cameraMatrix_);
 
     return points[0];
+}
+
+bool ImageCapture::saveCachedPerspective(const std::string& filename) {
+    if (!matrixCached_ || cachedPerspective_.empty()) {
+        std::cout << "No cached perspective to save." << std::endl;
+        return false;
+    }
+
+    cv::FileStorage fs(filename, cv::FileStorage::WRITE);
+    if (!fs.isOpened()) {
+        std::cerr << "Error: Could not open file for writing: " << filename << std::endl;
+        return false;
+    }
+
+    fs << "table_rect_x" << cachedTableRect_.x;
+    fs << "table_rect_y" << cachedTableRect_.y;
+    fs << "table_rect_width" << cachedTableRect_.width;
+    fs << "table_rect_height" << cachedTableRect_.height;
+    fs << "output_width" << cachedOutputSize_.width;
+    fs << "output_height" << cachedOutputSize_.height;
+    fs << "perspective_matrix" << cachedPerspective_;
+    fs.release();
+
+    std::cout << "Cached perspective saved to: " << filename << std::endl;
+    return true;
+}
+
+bool ImageCapture::loadCachedPerspective(const std::string& filename) {
+    cv::FileStorage fs(filename, cv::FileStorage::READ);
+    if (!fs.isOpened()) {
+        std::cout << "Cached perspective file not found: " << filename << ". Will detect table automatically." << std::endl;
+        return false;
+    }
+
+    int rectX, rectY, rectWidth, rectHeight, outWidth, outHeight;
+    fs["table_rect_x"] >> rectX;
+    fs["table_rect_y"] >> rectY;
+    fs["table_rect_width"] >> rectWidth;
+    fs["table_rect_height"] >> rectHeight;
+    fs["output_width"] >> outWidth;
+    fs["output_height"] >> outHeight;
+    fs["perspective_matrix"] >> cachedPerspective_;
+    fs.release();
+
+    cachedTableRect_ = cv::Rect(rectX, rectY, rectWidth, rectHeight);
+    cachedOutputSize_ = cv::Size(outWidth, outHeight);
+    matrixCached_ = true;
+
+    std::cout << "Cached perspective loaded from: " << filename << std::endl;
+    return true;
 }
