@@ -79,8 +79,8 @@ cv::Mat ImageCapture::captureImage() {
     if (cap_.isOpened()) {
         cap_ >> frame;
         
-        // Undistort the frame if calibration is available
-        if (!cameraMatrix_.empty() && !distCoeffs_.empty()) {
+        // Undistort the frame if calibration is available and enabled
+        if (!cameraMatrix_.empty() && !distCoeffs_.empty() && config_.ENABLE_UNDISTORTION) {
             cv::Mat undistorted;
             cv::undistort(frame, undistorted, cameraMatrix_, distCoeffs_);
             frame = undistorted;
