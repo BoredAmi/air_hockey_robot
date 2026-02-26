@@ -22,7 +22,7 @@ endif()
 find_package(Eigen3 REQUIRED)
 
 
-add_executable(air_hockey_robot apps/main.cpp src/capture.cpp src/calibration.cpp src/kalman.cpp src/trajectory.cpp src/movement.cpp)
+add_executable(air_hockey_robot apps/main.cpp src/capture.cpp src/kalman.cpp src/trajectory.cpp src/movement.cpp)
 if(WIN32)
     target_link_libraries(air_hockey_robot ${OpenCV_LIBS} Eigen3::Eigen ws2_32)
 else()
@@ -36,18 +36,7 @@ include_directories(
     ${LIBCAMERA_INCLUDE_DIRS}
 )
 
-add_executable(calibrate_camera apps/calibrate.cpp src/capture.cpp src/calibration.cpp)
-target_link_libraries(calibrate_camera ${OpenCV_LIBS} ${LIBCAMERA_LIBRARIES})
-include_directories(
-    include
-    config
-    ${OpenCV_INCLUDE_DIRS}
-    ${LIBCAMERA_INCLUDE_DIRS}
-)
-
-
-
-add_executable(test_trajectory apps/test_trajectory.cpp src/capture.cpp src/calibration.cpp src/kalman.cpp src/trajectory.cpp)
+add_executable(test_trajectory apps/test_trajectory.cpp src/capture.cpp src/kalman.cpp src/trajectory.cpp)
 target_link_libraries(test_trajectory ${OpenCV_LIBS} Eigen3::Eigen ${LIBCAMERA_LIBRARIES})
 include_directories(
     include
@@ -57,7 +46,7 @@ include_directories(
     ${LIBCAMERA_INCLUDE_DIRS}
 )
 
-add_executable(test_live_detection apps/test_live_detection.cpp src/capture.cpp src/calibration.cpp src/kalman.cpp src/trajectory.cpp)
+add_executable(test_live_detection apps/test_live_detection.cpp src/capture.cpp src/kalman.cpp src/trajectory.cpp)
 target_link_libraries(test_live_detection ${OpenCV_LIBS} Eigen3::Eigen ${LIBCAMERA_LIBRARIES})
 include_directories(
     include
@@ -67,7 +56,7 @@ include_directories(
     ${LIBCAMERA_INCLUDE_DIRS}
 )
 
-add_executable(benchmark apps/benchmark.cpp src/capture.cpp src/calibration.cpp src/kalman.cpp src/trajectory.cpp)
+add_executable(benchmark apps/benchmark.cpp src/capture.cpp src/kalman.cpp src/trajectory.cpp)
 target_link_libraries(benchmark ${OpenCV_LIBS} Eigen3::Eigen ${LIBCAMERA_LIBRARIES})
 include_directories(
     include
@@ -89,7 +78,7 @@ include_directories(
     ${EIGEN3_INCLUDE_DIR}
 )
 
-add_executable(config_tuner apps/config_tuner.cpp src/capture.cpp src/calibration.cpp src/kalman.cpp src/trajectory.cpp src/movement.cpp)
+add_executable(config_tuner apps/config_tuner.cpp src/capture.cpp src/kalman.cpp src/trajectory.cpp src/movement.cpp)
 if(WIN32)
     target_link_libraries(config_tuner ${OpenCV_LIBS} Eigen3::Eigen ws2_32)
 else()

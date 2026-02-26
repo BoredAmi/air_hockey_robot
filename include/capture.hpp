@@ -18,7 +18,7 @@ public:
     cv::Point2f detectPuck(const cv::Mat& grayImage);
     cv::Point2f imageToTableCoordinates(cv::Point2f imagePoint, int imageWidth, int imageHeight);
     cv::Point2f TableToImageCoordinates(cv::Point2f tablePoint, int imageWidth, int imageHeight);
-    bool loadCalibration(const std::string& filename = "camera_calibration.yml");
+    bool loadCalibration(const std::string& filename = "calibration_result.yaml");
     cv::Point2f undistortPoint(cv::Point2f distortedPoint);
     bool saveCachedPerspective(const std::string& filename = "table_perspective.yml");
     bool loadCachedPerspective(const std::string& filename = "table_perspective.yml");
