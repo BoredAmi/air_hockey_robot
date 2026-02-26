@@ -56,8 +56,12 @@ include_directories(
     ${LIBCAMERA_INCLUDE_DIRS}
 )
 
-add_executable(benchmark apps/benchmark.cpp src/capture.cpp src/kalman.cpp src/trajectory.cpp)
-target_link_libraries(benchmark ${OpenCV_LIBS} Eigen3::Eigen ${LIBCAMERA_LIBRARIES})
+add_executable(benchmark apps/benchmark.cpp src/capture.cpp src/kalman.cpp src/trajectory.cpp src/movement.cpp)
+if(WIN32)
+    target_link_libraries(benchmark ${OpenCV_LIBS} Eigen3::Eigen ws2_32)
+else()
+    target_link_libraries(benchmark ${OpenCV_LIBS} Eigen3::Eigen ${LIBCAMERA_LIBRARIES})
+endif()
 include_directories(
     include
     config

@@ -1,125 +1,158 @@
 #include "capture.hpp"
 #include "trajectory.hpp"
+#include "movement.hpp"
 #include <opencv2/opencv.hpp>
-#include <iostream>
 #include <chrono>
 #include <vector>
+#include <iostream>
+#include <string>
+#include <numeric>
 
 int main() {
-    cv::setUseOptimized(true);
     Config config;
     config.loadFromFile();
-    ImageCapture capture(config); 
+    cv::setUseOptimized(true);
+    ImageCapture capture(config);
     if (!capture.initialize()) {
         std::cerr << "Failed to initialize camera." << std::endl;
         return -1;
     }
 
-    cv::namedWindow("Benchmark Puck Detection", cv::WINDOW_NORMAL);
-    cv::resizeWindow("Benchmark Puck Detection", 1280, 720);
+    // Assume table is found for benchmark
+    capture.tableFound(true);
 
     TrajectoryPredictor predictor(config);
+    MovementController mover(config);
 
-    bool running = true;
-    bool paused = false;
+    std::cout << "Starting air hockey robot benchmark..." << std::endl;
+    std::cout << "Running for 60 seconds without GUI..." << std::endl;
 
-    std::cout << "Benchmarking puck detection and prediction..." << std::endl;
-    std::cout << "Controls:" << std::endl;
-    std::cout << "  Space: Pause/Resume" << std::endl;
-    std::cout << "  Q: Quit" << std::endl;
+    // Benchmark parameters
+    const int benchmarkDurationSeconds = 60;
+    auto startTime = std::chrono::high_resolution_clock::now();
+    auto endTime = startTime + std::chrono::seconds(benchmarkDurationSeconds);
 
-    // Benchmarking variables
+    // Statistics
+    int totalFrames = 0;
+    int framesWithPuckDetected = 0;
+    int framesWithPrediction = 0;
+    int movementsMade = 0;
+
+    // Timing vectors for averages
+    std::vector<double> captureTimes;
     std::vector<double> detectionTimes;
     std::vector<double> predictionTimes;
-    int frameCount = 0;
-    const int maxFrames = 100;  // Run for 100 frames
+    std::vector<double> movementTimes;
 
-    // Pre-allocate memory to avoid dynamic allocation in loop
-    cv::Mat frame, gray;
+    while (std::chrono::high_resolution_clock::now() < endTime) {
+        auto frameStart = std::chrono::high_resolution_clock::now();
 
-    while (running && frameCount < maxFrames) {
-        if (!paused) {
-            capture.captureImage().copyTo(frame);  // Reuse pre-allocated frame
-            if (frame.empty()) {
-                std::cerr << "Failed to capture frame." << std::endl;
-                continue;
-            }
+        // Capture frame
+        auto captureStart = std::chrono::high_resolution_clock::now();
+        cv::Mat frame = capture.captureImage();
+        auto captureEnd = std::chrono::high_resolution_clock::now();
+        double captureTime = std::chrono::duration<double, std::milli>(captureEnd - captureStart).count();
+        captureTimes.push_back(captureTime);
 
-            double currentTime = cv::getTickCount() / cv::getTickFrequency();
-            uint64_t currentTimeUs = (uint64_t)(currentTime * 1000000.0);
-
-            // Reuse pre-allocated gray matrix
-            cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
-
-            // Benchmark detection
-            auto detectStart = std::chrono::high_resolution_clock::now();
-            cv::Point2f puckCenter = capture.detectPuck(gray);
-            auto detectEnd = std::chrono::high_resolution_clock::now();
-            std::chrono::duration<double, std::milli> detectDuration = detectEnd - detectStart;
-
-            bool puckDetected = (puckCenter.x >= 0 && puckCenter.y >= 0);
-
-            // Overlay puck detection
-            if (puckDetected) {
-                cv::circle(frame, puckCenter, 10, cv::Scalar(0, 255, 0), -1);  // Green circle
-                cv::putText(frame, "Puck", puckCenter + cv::Point2f(15, 0), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
-
-                PuckPosition puckPos = {capture.imageToTableCoordinates(puckCenter, capture.getCroppedWidth(), capture.getCroppedHeight()), currentTimeUs};
-                
-                predictor.addMeasurement(puckPos);
-
-                // Benchmark prediction
-                auto predictStart = std::chrono::high_resolution_clock::now();
-                uint64_t futureTimeUs = currentTimeUs + 500000;  // 500ms
-                cv::Point2f predicted = predictor.predictPosition(futureTimeUs);
-                predicted = capture.TableToImageCoordinates(predicted, capture.getCroppedWidth(), capture.getCroppedHeight());
-                auto predictEnd = std::chrono::high_resolution_clock::now();
-                std::chrono::duration<double, std::milli> predictDuration = predictEnd - predictStart;
-
-                detectionTimes.push_back(detectDuration.count());
-                predictionTimes.push_back(predictDuration.count());
-
-                if (predicted.x >= 0 && predicted.y >= 0) {
-                    cv::circle(frame, predicted, 10, cv::Scalar(0, 0, 255), -1);  // Red circle
-                    cv::putText(frame, "Predicted", predicted + cv::Point2f(15, 0), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 1);
-                    
-                    // Draw velocity vector as arrow from current to predicted
-                    cv::arrowedLine(frame, puckCenter, predicted, cv::Scalar(255, 255, 0), 2, cv::LINE_AA, 0, 0.1);  // Yellow arrow
-                }
-            }
-
-            cv::imshow("Benchmark Puck Detection", frame);
-            frameCount++;
+        if (frame.empty()) {
+            std::cerr << "Failed to capture frame." << std::endl;
+            continue;
         }
 
-        int key = cv::waitKey(30);  // 30ms delay
-        if (key == ' ') {  // Space to pause/resume
-            paused = !paused;
-            std::cout << (paused ? "Paused" : "Resumed") << std::endl;
-        } else if (key == 'q' || key == 'Q') {  // Q to quit
-            running = false;
+        totalFrames++;
+
+        // Convert to gray
+        auto detectionStart = std::chrono::high_resolution_clock::now();
+        cv::Mat gray;
+        cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
+
+        // Detect puck
+        cv::Point2f puckCenter = capture.detectPuck(gray);
+        bool puckDetected = (puckCenter.x >= 0 && puckCenter.y >= 0);
+        auto detectionEnd = std::chrono::high_resolution_clock::now();
+        double detectionTime = std::chrono::duration<double, std::milli>(detectionEnd - detectionStart).count();
+        detectionTimes.push_back(detectionTime);
+
+        if (puckDetected) {
+            framesWithPuckDetected++;
+        }
+
+        double currentTime = cv::getTickCount() / cv::getTickFrequency();
+        uint64_t currentTimeUs = (uint64_t)(currentTime * 1000000.0);
+
+        cv::Point2f predictedEntryTable;
+        predictedEntryTable.x = -1.0f;
+        predictedEntryTable.y = -1.0f;
+
+        if (puckDetected) {
+            PuckPosition puckPos = {capture.imageToTableCoordinates(puckCenter, capture.getCroppedWidth(), capture.getCroppedHeight()), currentTimeUs};
+            predictor.addMeasurement(puckPos);
+
+            // Only predict if puck is outside defense zone
+            if (!predictor.isInDefenseZone(puckPos.position)) {
+                auto predictionStart = std::chrono::high_resolution_clock::now();
+                // Predict entry to defense zone
+                predictedEntryTable = predictor.predictEntryToDefenseZone(currentTimeUs);
+                auto predictionEnd = std::chrono::high_resolution_clock::now();
+                double predictionTime = std::chrono::duration<double, std::milli>(predictionEnd - predictionStart).count();
+                predictionTimes.push_back(predictionTime);
+                framesWithPrediction++;
+            }
+        }
+
+        if (predictedEntryTable.x >= 0 && predictedEntryTable.y >= 0) {
+            // Move robot
+            auto movementStart = std::chrono::high_resolution_clock::now();
+            cv::Point2f robotPosInTable(predictedEntryTable.x, predictedEntryTable.y);
+            cv::Point2f robotPos = mover.TableToRobotCoordinates(robotPosInTable);
+            mover.moveTo(robotPos);
+            auto movementEnd = std::chrono::high_resolution_clock::now();
+            double movementTime = std::chrono::duration<double, std::milli>(movementEnd - movementStart).count();
+            movementTimes.push_back(movementTime);
+            movementsMade++;
+        }
+
+        auto frameEnd = std::chrono::high_resolution_clock::now();
+        double frameTime = std::chrono::duration<double, std::milli>(frameEnd - frameStart).count();
+
+        // Optional: print progress every second
+        static auto lastPrint = std::chrono::high_resolution_clock::now();
+        if (std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - lastPrint).count() >= 1.0) {
+            std::cout << "Processed " << totalFrames << " frames so far..." << std::endl;
+            lastPrint = std::chrono::high_resolution_clock::now();
         }
     }
 
-    cv::destroyAllWindows();
+    // Calculate statistics
+    double totalTime = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - startTime).count();
+    double avgFps = totalFrames / totalTime;
 
-    // Print benchmark results
-    if (!detectionTimes.empty()) {
-        double avgDetect = 0.0;
-        for (double t : detectionTimes) avgDetect += t;
-        avgDetect /= detectionTimes.size();
+    double avgCaptureTime = captureTimes.empty() ? 0 : std::accumulate(captureTimes.begin(), captureTimes.end(), 0.0) / captureTimes.size();
+    double avgDetectionTime = detectionTimes.empty() ? 0 : std::accumulate(detectionTimes.begin(), detectionTimes.end(), 0.0) / detectionTimes.size();
+    double avgPredictionTime = predictionTimes.empty() ? 0 : std::accumulate(predictionTimes.begin(), predictionTimes.end(), 0.0) / predictionTimes.size();
+    double avgMovementTime = movementTimes.empty() ? 0 : std::accumulate(movementTimes.begin(), movementTimes.end(), 0.0) / movementTimes.size();
 
-        double avgPredict = 0.0;
-        for (double t : predictionTimes) avgPredict += t;
-        avgPredict /= predictionTimes.size();
+    double detectionRate = totalFrames > 0 ? (double)framesWithPuckDetected / totalFrames * 100.0 : 0;
+    double predictionRate = framesWithPuckDetected > 0 ? (double)framesWithPrediction / framesWithPuckDetected * 100.0 : 0;
 
-        std::cout << "\nBenchmark Results (over " << detectionTimes.size() << " detections):" << std::endl;
-        std::cout << "Average Detection Time: " << avgDetect << " ms" << std::endl;
-        std::cout << "Average Prediction Time: " << avgPredict << " ms" << std::endl;
-        std::cout << "Total Time per Frame (detect + predict): " << (avgDetect + avgPredict) << " ms" << std::endl;
-    } else {
-        std::cout << "No puck detections during benchmark." << std::endl;
+    // Output results
+    std::cout << "\n=== Benchmark Results ===" << std::endl;
+    std::cout << "Total frames processed: " << totalFrames << std::endl;
+    std::cout << "Average FPS: " << avgFps << std::endl;
+    std::cout << "Frames with puck detected: " << framesWithPuckDetected << " (" << detectionRate << "%)" << std::endl;
+    std::cout << "Frames with prediction: " << framesWithPrediction << " (" << predictionRate << "% of detected)" << std::endl;
+    std::cout << "Movements made: " << movementsMade << std::endl;
+    std::cout << "\nAverage times (ms):" << std::endl;
+    std::cout << "  Capture: " << avgCaptureTime << std::endl;
+    std::cout << "  Detection: " << avgDetectionTime << std::endl;
+    if (!predictionTimes.empty()) {
+        std::cout << "  Prediction: " << avgPredictionTime << std::endl;
+    }
+    if (!movementTimes.empty()) {
+        std::cout << "  Movement: " << avgMovementTime << std::endl;
     }
 
+    mover.stop();
+    std::cout << "Benchmark completed." << std::endl;
     return 0;
 }
