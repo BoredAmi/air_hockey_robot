@@ -81,7 +81,9 @@ cv::Mat ImageCapture::captureImage() {
         
         // Undistort the frame if calibration is available
         if (!cameraMatrix_.empty() && !distCoeffs_.empty()) {
-            cv::undistort(frame, frame, cameraMatrix_, distCoeffs_);
+            cv::Mat undistorted;
+            cv::undistort(frame, undistorted, cameraMatrix_, distCoeffs_);
+            frame = undistorted;
         }
         
         cv::RotatedRect tableRotated;
@@ -204,20 +206,23 @@ cv::Point2f ImageCapture::TableToImageCoordinates(cv::Point2f tablePoint, int im
 }
 
 bool ImageCapture::loadCalibration(const std::string& filename) {
-    cv::FileStorage fs(filename, cv::FileStorage::READ);
-    if (!fs.isOpened()) {
-        std::cout << "Calibration file not found: " << filename << ". Using uncalibrated coordinates." << std::endl;
+    try {
+        cv::FileStorage fs(filename, cv::FileStorage::READ);
+        if (!fs.isOpened()) {
+            std::cout << "Calibration file not found: " << filename << ". Using uncalibrated coordinates." << std::endl;
+            return false;
+        }
+
+        fs["camera_matrix"] >> cameraMatrix_;
+        fs["distortion_coefficients"] >> distCoeffs_;
+        fs.release();
+
+        std::cout << "Calibration loaded from: " << filename << std::endl;
+        return true;
+    } catch (const cv::Exception& e) {
+        std::cout << "Error loading calibration file: " << filename << ". " << e.what() << ". Using uncalibrated coordinates." << std::endl;
         return false;
     }
-
-    fs["camera_matrix"] >> cameraMatrix_;
-    fs["distortion_coefficients"] >> distCoeffs_;
-    fs.release();
-
-    std::cout << "Calibration loaded from: " << filename << std::endl;
-    
-    
-    return true;
 }
 
 cv::Point2f ImageCapture::undistortPoint(cv::Point2f distortedPoint) {

@@ -95,22 +95,19 @@ if len(all_charuco_corners) >= 12:
         distCoeffs=None
     )
 
-    # Prepare data for YAML file
-    calib_results = {
-        "rms_error": float(ret),
-        "camera_matrix": mtx.tolist(),
-        "distortion_coefficients": dist.tolist(),
-        "resolution": [1640, 1232],
-        "pattern": f"Charuco {COLS}x{ROWS}"
-    }
-    # Save it in build folder for easy access by C++ code
-    with open("../build/calibration_result.yaml", "w") as f:
-        yaml.dump(calib_results, f, default_flow_style=False)
+    # Save using OpenCV FileStorage format for compatibility with C++ code
+    fs = cv2.FileStorage("../build/calibration_result.yaml", cv2.FILE_STORAGE_WRITE)
+    fs.write("camera_matrix", mtx)
+    fs.write("distortion_coefficients", dist)
+    fs.write("rms_error", float(ret))
+    fs.write("resolution", np.array([1640, 1232]))
+    fs.write("pattern", f"Charuco {COLS}x{ROWS}")
+    fs.release()
 
     print("-" * 30)
     print(f"CALIBRATION COMPLETED!")
     print(f"RMS Error: {ret:.4f}")
-    print("Result saved in: calibration_result.yaml")
+    print("Result saved in: ../build/calibration_result.yaml")
     print("-" * 30)
 else:
     print("\n[ERROR] Not enough data. Collect at least 12-15 varied frames.")
