@@ -30,11 +30,26 @@ int main() {
 
     bool running = true;
 
+    // FPS counter variables
+    int frameCount = 0;
+    auto lastTime = std::chrono::high_resolution_clock::now();
+    double fps = 0.0;
+
     while (running) {
         cv::Mat frame = capture.captureImage();
         if (frame.empty()) {
             std::cerr << "Failed to capture frame." << std::endl;
             continue;
+        }
+
+        // FPS calculation
+        frameCount++;
+        auto currentTime_FPS = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = currentTime_FPS - lastTime;
+        if (elapsed.count() >= 1.0) {
+            fps = frameCount / elapsed.count();
+            frameCount = 0;
+            lastTime = currentTime_FPS;
         }
 
         cv::Mat gray;
@@ -89,6 +104,9 @@ int main() {
             std::cout << "Moving robot to X: " << predictedEntryTable.x << " mm and Y: " << predictedEntryTable.y << " mm" << std::endl;
             
         }
+
+        // Display FPS
+        cv::putText(frame, "FPS: " + std::to_string((int)fps), cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255, 255, 255), 2);
 
         cv::imshow("Air Hockey Defense", frame);
 
