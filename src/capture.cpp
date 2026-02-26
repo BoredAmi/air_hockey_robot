@@ -1,7 +1,7 @@
 #include "capture.hpp"
 #include <iostream>
 
-ImageCapture::ImageCapture(const Config& config) : config_(config), cameraIndex_(config.CAMERA_INDEX), croppedWidth_(config.TABLE_WIDTH), croppedHeight_(config.TABLE_HEIGHT), tableFound_(false), matrixCached_(false) {}
+ImageCapture::ImageCapture(const Config& config) : config_(config), cameraIndex_(config.CAMERA_INDEX), croppedWidth_(config.TABLE_WIDTH), croppedHeight_(config.TABLE_HEIGHT), tableDetected_(false), tablePerspectiveCached_(false) {}
 
 ImageCapture::~ImageCapture() {
     if (cap_.isOpened()) {
@@ -78,17 +78,23 @@ cv::Mat ImageCapture::captureImage() {
     cv::Mat frame;
     if (cap_.isOpened()) {
         cap_ >> frame;
+        
+        // Undistort the frame if calibration is available
+        if (!cameraMatrix_.empty() && !distCoeffs_.empty()) {
+            cv::undistort(frame, frame, cameraMatrix_, distCoeffs_);
+        }
+        
         cv::RotatedRect tableRotated;
         cv::Rect tableRect;
         cv::Mat perspectiveMatrix;
         cv::Size outputSize;
-        if (!matrixCached_ || !tableFound_) {
+        if (!tablePerspectiveCached_ || !tableDetected_) {
             tableRotated = detectTable(frame);
             tableRect = tableRotated.boundingRect();
             if (tableRect.area() > 0) {
                 // Cache the values
-                cachedTableRect_ = tableRect;
-                cachedOutputSize_ = cv::Size(tableRotated.size.width, tableRotated.size.height);
+                tableBoundingRect_ = tableRect;
+                tableOutputSize_ = cv::Size(tableRotated.size.width, tableRotated.size.height);
                 // Compute perspective matrix
                 cv::Point2f srcPoints[4];
                 tableRotated.points(srcPoints);
@@ -101,27 +107,26 @@ cv::Mat ImageCapture::captureImage() {
                     {tableRotated.size.width, tableRotated.size.height},
                     {0, tableRotated.size.height}
                 };
-                cachedPerspective_ = cv::getPerspectiveTransform(srcPoints, dstPoints);
-                if (tableFound_){
-                    matrixCached_ = true;
+                tablePerspectiveMatrix_ = cv::getPerspectiveTransform(srcPoints, dstPoints);
+                if (tableDetected_){
+                    tablePerspectiveCached_ = true;
                     saveCachedPerspective();
                 }
             }
         } else {
-            tableRect = cachedTableRect_;
-            perspectiveMatrix = cachedPerspective_;
-            outputSize = cachedOutputSize_;
+            tableRect = tableBoundingRect_;
+            perspectiveMatrix = tablePerspectiveMatrix_;
+            outputSize = tableOutputSize_;
         }
         if (tableRect.area() > 0) {
             // Crop to bounding rect
             cv::Mat cropped = frame(tableRect);
             // Warp to straighten the table
-            cv::warpPerspective(cropped, frame, cachedPerspective_, cachedOutputSize_);
+            cv::warpPerspective(cropped, frame, tablePerspectiveMatrix_, tableOutputSize_);
             cv::resize(frame, frame, cv::Size(256, 192));  // Resize for faster processing
             croppedWidth_ = 256;
             croppedHeight_ = 192;
         }
-        
     }
     return frame;
 }
@@ -169,16 +174,14 @@ cv::Point2f ImageCapture::detectPuck(const cv::Mat& grayImage) {
 cv::Point2f ImageCapture::imageToTableCoordinates(cv::Point2f imagePoint, int imageWidth, int imageHeight) {
     if (imageWidth == 0) imageWidth = config_.TABLE_WIDTH;
     if (imageHeight == 0) imageHeight = config_.TABLE_HEIGHT;
-    // First, undistort the point if calibration is available
-    cv::Point2f undistortedPoint = undistortPoint(imagePoint);
 
     // Scale factors from image pixels to physical units (mm)
     float scaleX = config_.PHYSICAL_TABLE_WIDTH / imageWidth;
     float scaleY = config_.PHYSICAL_TABLE_HEIGHT / imageHeight;
 
     // Origin at bottom-left corner of table
-    float tableX = undistortedPoint.x * scaleX;
-    float tableY = (imageHeight - undistortedPoint.y) * scaleY;  // Y increases up in table
+    float tableX = imagePoint.x * scaleX;
+    float tableY = (imageHeight - imagePoint.y) * scaleY;  // Y increases up in table
 
     
     return cv::Point2f(tableX, tableY);
@@ -196,12 +199,6 @@ cv::Point2f ImageCapture::TableToImageCoordinates(cv::Point2f tablePoint, int im
 
     cv::Point2f imagePoint(imageX, imageY);
 
-    // Undistort the point if calibration is available
-    if (!cameraMatrix_.empty() && !distCoeffs_.empty()) {
-        std::vector<cv::Point2f> points = {imagePoint};
-        cv::undistortPoints(points, points, cameraMatrix_, distCoeffs_, cv::noArray(), cameraMatrix_);
-        imagePoint = points[0];
-    }
 
     return imagePoint;
 }
@@ -218,6 +215,8 @@ bool ImageCapture::loadCalibration(const std::string& filename) {
     fs.release();
 
     std::cout << "Calibration loaded from: " << filename << std::endl;
+    
+    
     return true;
 }
 
@@ -235,8 +234,8 @@ cv::Point2f ImageCapture::undistortPoint(cv::Point2f distortedPoint) {
 }
 
 bool ImageCapture::saveCachedPerspective(const std::string& filename) {
-    if (!matrixCached_ || cachedPerspective_.empty()) {
-        std::cout << "No cached perspective to save." << std::endl;
+    if (!tablePerspectiveCached_ || tablePerspectiveMatrix_.empty()) {
+        std::cout << "No cached table perspective to save." << std::endl;
         return false;
     }
 
@@ -246,23 +245,23 @@ bool ImageCapture::saveCachedPerspective(const std::string& filename) {
         return false;
     }
 
-    fs << "table_rect_x" << cachedTableRect_.x;
-    fs << "table_rect_y" << cachedTableRect_.y;
-    fs << "table_rect_width" << cachedTableRect_.width;
-    fs << "table_rect_height" << cachedTableRect_.height;
-    fs << "output_width" << cachedOutputSize_.width;
-    fs << "output_height" << cachedOutputSize_.height;
-    fs << "perspective_matrix" << cachedPerspective_;
+    fs << "table_rect_x" << tableBoundingRect_.x;
+    fs << "table_rect_y" << tableBoundingRect_.y;
+    fs << "table_rect_width" << tableBoundingRect_.width;
+    fs << "table_rect_height" << tableBoundingRect_.height;
+    fs << "output_width" << tableOutputSize_.width;
+    fs << "output_height" << tableOutputSize_.height;
+    fs << "perspective_matrix" << tablePerspectiveMatrix_;
     fs.release();
 
-    std::cout << "Cached perspective saved to: " << filename << std::endl;
+    std::cout << "Cached table perspective saved to: " << filename << std::endl;
     return true;
 }
 
 bool ImageCapture::loadCachedPerspective(const std::string& filename) {
     cv::FileStorage fs(filename, cv::FileStorage::READ);
     if (!fs.isOpened()) {
-        std::cout << "Cached perspective file not found: " << filename << ". Will detect table automatically." << std::endl;
+        std::cout << "Cached table perspective file not found: " << filename << ". Will detect table automatically." << std::endl;
         return false;
     }
 
@@ -273,14 +272,14 @@ bool ImageCapture::loadCachedPerspective(const std::string& filename) {
     fs["table_rect_height"] >> rectHeight;
     fs["output_width"] >> outWidth;
     fs["output_height"] >> outHeight;
-    fs["perspective_matrix"] >> cachedPerspective_;
+    fs["perspective_matrix"] >> tablePerspectiveMatrix_;
     fs.release();
 
-    cachedTableRect_ = cv::Rect(rectX, rectY, rectWidth, rectHeight);
-    cachedOutputSize_ = cv::Size(outWidth, outHeight);
-    matrixCached_ = true;
-    tableFound_ = true;
+    tableBoundingRect_ = cv::Rect(rectX, rectY, rectWidth, rectHeight);
+    tableOutputSize_ = cv::Size(outWidth, outHeight);
+    tablePerspectiveCached_ = true;
+    tableDetected_ = true;
 
-    std::cout << "Cached perspective loaded from: " << filename << std::endl;
+    std::cout << "Cached table perspective loaded from: " << filename << std::endl;
     return true;
 }

@@ -24,7 +24,7 @@ public:
     bool loadCachedPerspective(const std::string& filename = "table_perspective.yml");
     int getCroppedWidth() const { return croppedWidth_; }
     int getCroppedHeight() const { return croppedHeight_; }
-    void tableFound(bool found) { tableFound_ = found; }
+    void tableFound(bool found) { tableDetected_ = found; }
     
 
 private:
@@ -32,13 +32,18 @@ private:
     int croppedHeight_;
     cv::VideoCapture cap_;
     int cameraIndex_;
+    
+    // Camera calibration data 
     cv::Mat cameraMatrix_;
     cv::Mat distCoeffs_;
-    bool matrixCached_;
-    bool tableFound_;
-    cv::Mat cachedPerspective_;
-    cv::Rect cachedTableRect_;
-    cv::Size cachedOutputSize_;
+    
+    // Table detection and perspective correction data
+    bool tablePerspectiveCached_;
+    bool tableDetected_;
+    cv::Mat tablePerspectiveMatrix_;
+    cv::Rect tableBoundingRect_;
+    cv::Size tableOutputSize_;
+    
     const Config& config_;
 };
 
