@@ -54,7 +54,7 @@ bool MovementController::moveTo(cv::Point2f tablePosition) {
         std::cerr << "Warning: Attempting to move to out-of-bounds position (" << tablePosition.x << ", " << tablePosition.y << ")" << std::endl;
         return false;
     }
-    if (abs(lastPosition.x - tablePosition.x) < 5 || abs(lastPosition.y - tablePosition.y) < 5) {
+    if (sqrt(pow(lastPosition.x - tablePosition.x, 2) + pow(lastPosition.y - tablePosition.y, 2)) < 2) {
         std::cout << "Already close to target position, skipping move command." << std::endl;
         return false;
     }
