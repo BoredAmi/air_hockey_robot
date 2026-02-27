@@ -69,6 +69,19 @@ include_directories(
     ${EIGEN3_INCLUDE_DIR}
     ${LIBCAMERA_INCLUDE_DIRS}
 )
+add_executable(camera_preview apps/camera_preview.cpp src/capture.cpp)
+if(WIN32)
+    target_link_libraries(camera_preview ${OpenCV_LIBS} Eigen3::Eigen ws2_32)
+else()
+    target_link_libraries(camera_preview ${OpenCV_LIBS} Eigen3::Eigen ${LIBCAMERA_LIBRARIES})
+endif()
+include_directories(
+    include
+    config
+    ${OpenCV_INCLUDE_DIRS}
+    ${EIGEN3_INCLUDE_DIR}
+    ${LIBCAMERA_INCLUDE_DIRS}
+)
 add_executable(test_udp apps/test_udp.cpp src/movement.cpp)
 if(WIN32)
     target_link_libraries(test_udp ${OpenCV_LIBS} Eigen3::Eigen ws2_32)

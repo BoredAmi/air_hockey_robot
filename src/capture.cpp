@@ -52,7 +52,8 @@ cv::RotatedRect ImageCapture::detectTable(cv::Mat& image) {
 
 bool ImageCapture::initialize() {
     if (config_.USE_LIBCAMERA_BOOL) {
-        std::string pipeline = "libcamerasrc ! video/x-raw,format=BGR,width=1640,height=1232 ! appsink sync=false";
+        // This is your current setup. It gives 90 FPS but the FOV is ~40% of the sensor.
+        std::string pipeline = "libcamerasrc ! video/x-raw,width=640,height=480,framerate=90/1 ! videoconvert ! video/x-raw,format=BGR ! appsink sync=false";   
         cap_.open(pipeline, cv::CAP_GSTREAMER);
         if (!cap_.isOpened()) {
             std::cerr << "Error: Could not open camera with GStreamer pipeline" << std::endl;
@@ -64,6 +65,16 @@ bool ImageCapture::initialize() {
             std::cerr << "Error: Could not open camera " << config_.CAMERA_INDEX << std::endl;
             return false;
         }
+        // Set camera properties for better performance
+        cap_.set(cv::CAP_PROP_FRAME_WIDTH, 640);
+        cap_.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
+        cap_.set(cv::CAP_PROP_FPS, 90);
+        
+        // Verify the settings were applied
+        double actualWidth = cap_.get(cv::CAP_PROP_FRAME_WIDTH);
+        double actualHeight = cap_.get(cv::CAP_PROP_FRAME_HEIGHT);
+        double actualFps = cap_.get(cv::CAP_PROP_FPS);
+        std::cout << "Camera settings - Width: " << actualWidth << ", Height: " << actualHeight << ", FPS: " << actualFps << std::endl;
     }
     // Try to load calibration data
     loadCalibration();
@@ -129,6 +140,14 @@ cv::Mat ImageCapture::captureImage() {
             croppedWidth_ = 256;
             croppedHeight_ = 192;
         }
+    }
+    return frame;
+}
+
+cv::Mat ImageCapture::captureRawImage() {
+    cv::Mat frame;
+    if (cap_.isOpened()) {
+        cap_ >> frame;
     }
     return frame;
 }

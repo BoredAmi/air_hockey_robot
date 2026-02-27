@@ -13,6 +13,7 @@ public:
     cv::RotatedRect detectTable(cv::Mat& image);
     bool initialize();
     cv::Mat captureImage();
+    cv::Mat captureRawImage();
     cv::Mat captureGrayscaleImage();
     bool saveImage(const cv::Mat& image, const std::string& filename);
     cv::Point2f detectPuck(const cv::Mat& grayImage);
