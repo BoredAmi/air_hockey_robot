@@ -101,7 +101,8 @@ int main() {
 
             mover.moveTo(robotPos);
             
-            std::cout << "Moving robot to X: " << predictedEntryTable.x << " mm and Y: " << predictedEntryTable.y << " mm" << std::endl;
+            std::cout << "Camera coordinates entry: X: " << predictedEntryTable.x << " mm , Y: " << predictedEntryTable.y << " mm" << std::endl;
+            std::cout << "Robot coordinates entry: X: " << robotPos.x << " mm, Y: " << robotPos.y << " mm" << std::endl;
             
         }
 

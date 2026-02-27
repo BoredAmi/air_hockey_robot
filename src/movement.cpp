@@ -4,7 +4,7 @@
 #include <sstream>
 #include <stdexcept>
 
-MovementController::MovementController(const Config& config) : config_(config), robotSocket(
+MovementController::MovementController(const Config& config, cv::Point2f initialPosition) : config_(config), lastPosition(initialPosition), robotSocket(
 #ifdef _WIN32
     INVALID_SOCKET
 #else
@@ -49,7 +49,19 @@ MovementController::~MovementController() {
 void MovementController::moveTo(cv::Point2f tablePosition) {
     if (!connected) return;
 
-    // Convert table position to robot coordinates (mm)
+    if (tablePosition.x < 0 || tablePosition.y < 0 || tablePosition.x > config_.PHYSICAL_TABLE_WIDTH || tablePosition.y > config_.PHYSICAL_TABLE_HEIGHT) {
+        std::cerr << "Warning: Attempting to move to out-of-bounds position (" << tablePosition.x << ", " << tablePosition.y << ")" << std::endl;
+        return;
+    }
+    if (abs(lastPosition.x - tablePosition.x) < 5 || abs(lastPosition.y - tablePosition.y) < 5) {
+        std::cout << "Already close to target position, skipping move command." << std::endl;
+        return;
+    }
+    lastPosition = tablePosition;
+    
+
+     cv::Point2f robotPos = TableToRobotCoordinates(tablePosition);
+    
     float x = tablePosition.x; 
     float y = tablePosition.y;
 
@@ -174,24 +186,24 @@ cv::Point2f MovementController::TableToRobotCoordinates(cv::Point2f tablePositio
     switch (config_.robot_origin_corner) {
     
     case 0:  // top-left
-        robotX = tablePosition.x;
-        robotY = config_.PHYSICAL_TABLE_HEIGHT - tablePosition.y;
+        robotX = tablePosition.y;
+        robotY = tablePosition.x;
         break;
     case 1: // top-right
-        robotX = config_.PHYSICAL_TABLE_HEIGHT - tablePosition.y;
-        robotY = config_.PHYSICAL_TABLE_WIDTH - tablePosition.x;
-        break;
-    case 2: // bottom-left
-        robotX = tablePosition.y;
-        robotY = config_.PHYSICAL_TABLE_WIDTH - tablePosition.x;
-        break;
-    case 3: // bottom-right
         robotX = config_.PHYSICAL_TABLE_WIDTH - tablePosition.x;
         robotY = tablePosition.y;
         break;
-    default:
+    case 2: // bottom-left
         robotX = tablePosition.x;
         robotY = config_.PHYSICAL_TABLE_HEIGHT - tablePosition.y;
+        break;
+    case 3: // bottom-right
+        robotX = config_.PHYSICAL_TABLE_HEIGHT - tablePosition.y;
+        robotY = config_.PHYSICAL_TABLE_WIDTH - tablePosition.x;
+        break;
+    default:
+        robotX = tablePosition.y;
+        robotY = tablePosition.x;
         break;
     }
     return cv::Point2f(robotX, robotY);

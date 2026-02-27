@@ -202,7 +202,7 @@ cv::Point2f ImageCapture::imageToTableCoordinates(cv::Point2f imagePoint, int im
 
     // Origin at bottom-left corner of table
     float tableX = imagePoint.x * scaleX;
-    float tableY = (imageHeight - imagePoint.y) * scaleY; 
+    float tableY = imagePoint.y * scaleY; 
 
     
     return cv::Point2f(tableX, tableY);
@@ -216,7 +216,7 @@ cv::Point2f ImageCapture::TableToImageCoordinates(cv::Point2f tablePoint, int im
 
     // Convert table coordinates back to image coordinates (origin at bottom-left)
     float imageX = tablePoint.x * scaleX;
-    float imageY = imageHeight - tablePoint.y * scaleY;  // Y flip back
+    float imageY = tablePoint.y * scaleY;  
 
     cv::Point2f imagePoint(imageX, imageY);
 

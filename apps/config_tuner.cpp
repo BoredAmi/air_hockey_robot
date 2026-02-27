@@ -158,32 +158,32 @@ int main() {
         case 0: // top-left
             robotOriginPoint = topLeft + cv::Point2f(50, 50);
             robotOriginLabel = "Robot Origin (TL)";
-            axisXEnd = robotOriginPoint + cv::Point2f(100, 0);  // X axis to the right
-            axisYEnd = robotOriginPoint + cv::Point2f(0, -100);  // Y axis up
+            axisXEnd = robotOriginPoint + cv::Point2f(0, 100);  
+            axisYEnd = robotOriginPoint + cv::Point2f(100, 0);  
             break;
         case 1: // top-right
             robotOriginPoint = topRight + cv::Point2f(50, 50);
             robotOriginLabel = "Robot Origin (TR)";
-            axisXEnd = robotOriginPoint + cv::Point2f(0, -100);  // X up
-            axisYEnd = robotOriginPoint + cv::Point2f(-100, 0);  // Y to the left
+            axisXEnd = robotOriginPoint + cv::Point2f(-100, 0); 
+            axisYEnd = robotOriginPoint + cv::Point2f(0, 100); 
             break;
         case 2: // bottom-left
             robotOriginPoint = bottomLeft + cv::Point2f(50, 50);
             robotOriginLabel = "Robot Origin (BL)";
-            axisXEnd = robotOriginPoint + cv::Point2f(0, 100);  // X axis down
-            axisYEnd = robotOriginPoint + cv::Point2f(100, 0);  // Y axis right
+            axisXEnd = robotOriginPoint + cv::Point2f(100, 0); 
+            axisYEnd = robotOriginPoint + cv::Point2f(0, -100); 
             break;
         case 3: // bottom-right
             robotOriginPoint = bottomRight + cv::Point2f(50, 50);
             robotOriginLabel = "Robot Origin (BR)";
-            axisXEnd = robotOriginPoint + cv::Point2f(-100, 0) ;  // x axis to the left
-            axisYEnd = robotOriginPoint + cv::Point2f(0, 100); // Y axis down
+            axisXEnd = robotOriginPoint + cv::Point2f(0, -100) ;  
+            axisYEnd = robotOriginPoint + cv::Point2f(-100, 0); 
             break;
         default:
             robotOriginPoint = topLeft + cv::Point2f(50, 50);
             robotOriginLabel = "Robot Origin (TL)";
-            axisXEnd = robotOriginPoint + cv::Point2f(100, 0);  // X axis to the right
-            axisYEnd = robotOriginPoint + cv::Point2f(0, -100);  // Y axis up
+            axisXEnd = robotOriginPoint + cv::Point2f(0, 100);  
+            axisYEnd = robotOriginPoint + cv::Point2f(100, 0);  
             break;
         }
         cv::circle(frame, robotOriginPoint, 15, cv::Scalar(255, 255, 255), 3);  // White circle with thick border
