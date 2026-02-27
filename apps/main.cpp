@@ -99,11 +99,12 @@ int main() {
             cv::Point2f robotPosInTable(predictedEntryTable.x, predictedEntryTable.y);
             cv::Point2f robotPos = mover.TableToRobotCoordinates(robotPosInTable);
 
-            mover.moveTo(robotPos);
-            
-            std::cout << "Camera coordinates entry: X: " << predictedEntryTable.x << " mm , Y: " << predictedEntryTable.y << " mm" << std::endl;
-            std::cout << "Robot coordinates entry: X: " << robotPos.x << " mm, Y: " << robotPos.y << " mm" << std::endl;
-            
+            if(mover.moveTo(robotPos)) {
+                std::cout << "Camera coordinates entry: X: " << predictedEntryTable.x << " mm , Y: " << predictedEntryTable.y << " mm" << std::endl;
+                std::cout << "Moving robot to: X: " << robotPos.x << " mm, Y: " << robotPos.y << " mm" << std::endl;
+            } else {
+                std::cout << "Point too close to last position" << std::endl;
+            }
         }
 
         // Display FPS

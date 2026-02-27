@@ -22,7 +22,7 @@ class MovementController {
 public:
     MovementController(const Config& config, cv::Point2f initialPosition = cv::Point2f(0, 0));
     ~MovementController();
-    void moveTo(cv::Point2f tablePosition);
+    bool moveTo(cv::Point2f tablePosition);
     void stop();
     cv::Point2f TableToRobotCoordinates(cv::Point2f tablePosition);
 

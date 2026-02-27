@@ -46,16 +46,16 @@ MovementController::~MovementController() {
 #endif
 }
 
-void MovementController::moveTo(cv::Point2f tablePosition) {
-    if (!connected) return;
+bool MovementController::moveTo(cv::Point2f tablePosition) {
+    if (!connected) return false;
 
     if (tablePosition.x < 0 || tablePosition.y < 0 || tablePosition.x > config_.PHYSICAL_TABLE_WIDTH || tablePosition.y > config_.PHYSICAL_TABLE_HEIGHT) {
         std::cerr << "Warning: Attempting to move to out-of-bounds position (" << tablePosition.x << ", " << tablePosition.y << ")" << std::endl;
-        return;
+        return false;
     }
     if (abs(lastPosition.x - tablePosition.x) < 5 || abs(lastPosition.y - tablePosition.y) < 5) {
         std::cout << "Already close to target position, skipping move command." << std::endl;
-        return;
+        return false;
     }
     lastPosition = tablePosition;
     
@@ -68,6 +68,7 @@ void MovementController::moveTo(cv::Point2f tablePosition) {
     std::stringstream ss;
     ss << "MOVE," << x << "," << y;
     sendCommand(ss.str());
+    return true;
 }
 
 void MovementController::stop() {
