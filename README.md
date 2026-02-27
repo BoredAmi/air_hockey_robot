@@ -22,7 +22,7 @@ An autonomous air hockey robot system that uses computer vision to detect the pu
 
 ### Hardware Requirements
 - **Camera**: USB camera for puck detection.
-- **ABB Robotic Arm**: Compatible with RAPID programming (e.g., IRB 120 series) for movement control.
+- **ABB Robotic Arm**: Compatible with RAPID programming (e.g., IRB 120 series) for movement control with origin in the left corner of the table from goal looking from robots perspective
 - **Air Hockey Table**: Physical setup with known dimensions for coordinate mapping.
 - **Computer/Raspberry Pi**: For running the vision and control software.
 

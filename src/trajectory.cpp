@@ -190,14 +190,14 @@ void TrajectoryPredictor::setDefenseZone(int zoneIndex) {
         zoneXMin = config_.PHYSICAL_TABLE_WIDTH - config_.DEFENSE_ZONE_HEIGHT;
         zoneXMax = config_.PHYSICAL_TABLE_WIDTH;
         break;
-    case 2: // Bottom defense zone
+    case 2: // Top defense zone
         zoneYMin = 0;
         zoneYMax = config_.DEFENSE_ZONE_HEIGHT;
         zoneXMin = (config_.PHYSICAL_TABLE_WIDTH - config_.DEFENSE_ZONE_WIDTH) / 2.0;
         zoneXMax = (config_.PHYSICAL_TABLE_WIDTH + config_.DEFENSE_ZONE_WIDTH) / 2.0;
 
         break;
-    case 3: // Top defense zone
+    case 3: // Bottom defense zone
         zoneYMin = config_.PHYSICAL_TABLE_HEIGHT - config_.DEFENSE_ZONE_HEIGHT;
         zoneYMax = config_.PHYSICAL_TABLE_HEIGHT;
         zoneXMin = (config_.PHYSICAL_TABLE_WIDTH - config_.DEFENSE_ZONE_WIDTH) / 2.0;

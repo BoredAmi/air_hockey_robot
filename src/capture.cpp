@@ -36,8 +36,8 @@ cv::RotatedRect ImageCapture::detectTable(cv::Mat& image) {
             cv::Rect candidateRect = minRect.boundingRect();
             // Ensure the rect is within image bounds and doesn't touch border too much
             if (candidateRect.x > 0 && candidateRect.y > 0 && 
-                candidateRect.x + candidateRect.width < image.cols && 
-                candidateRect.y + candidateRect.height < image.rows) {
+                candidateRect.x + candidateRect.width <= image.cols && 
+                candidateRect.y + candidateRect.height <= image.rows) {
                 double candidateArea = candidateRect.area();
                 if (candidateArea > maxArea) {
                     maxArea = candidateArea;
@@ -53,7 +53,7 @@ cv::RotatedRect ImageCapture::detectTable(cv::Mat& image) {
 bool ImageCapture::initialize() {
     if (config_.USE_LIBCAMERA_BOOL) {
         // This is your current setup. It gives 90 FPS but the FOV is ~40% of the sensor.
-        std::string pipeline = "libcamerasrc ! video/x-raw,width=640,height=480,framerate=90/1 ! videoconvert ! video/x-raw,format=BGR ! appsink sync=false";   
+        std::string pipeline = "libcamerasrc ! video/x-raw,width=640,height=480,framerate=90/1 ! appsink sync=false";   
         cap_.open(pipeline, cv::CAP_GSTREAMER);
         if (!cap_.isOpened()) {
             std::cerr << "Error: Could not open camera with GStreamer pipeline" << std::endl;
@@ -202,7 +202,7 @@ cv::Point2f ImageCapture::imageToTableCoordinates(cv::Point2f imagePoint, int im
 
     // Origin at bottom-left corner of table
     float tableX = imagePoint.x * scaleX;
-    float tableY = (imageHeight - imagePoint.y) * scaleY;  // Y increases up in table
+    float tableY = (imageHeight - imagePoint.y) * scaleY; 
 
     
     return cv::Point2f(tableX, tableY);
@@ -306,4 +306,12 @@ bool ImageCapture::loadCachedPerspective(const std::string& filename) {
 
     std::cout << "Cached table perspective loaded from: " << filename << std::endl;
     return true;
+}
+void ImageCapture::tableFound(bool found) {
+    tableDetected_ = found;
+    if (found)
+    {
+        saveCachedPerspective();
+    }
+    
 }

@@ -173,25 +173,25 @@ cv::Point2f MovementController::TableToRobotCoordinates(cv::Point2f tablePositio
     float robotX, robotY;
     switch (config_.robot_origin_corner) {
     
-    case 0: // top-left: X right, Y up
+    case 0:  // top-left
         robotX = tablePosition.x;
         robotY = config_.PHYSICAL_TABLE_HEIGHT - tablePosition.y;
         break;
-    case 1: // top-right: X left, Y up
+    case 1: // top-right
+        robotX = config_.PHYSICAL_TABLE_HEIGHT - tablePosition.y;
+        robotY = config_.PHYSICAL_TABLE_WIDTH - tablePosition.x;
+        break;
+    case 2: // bottom-left
+        robotX = tablePosition.y;
+        robotY = config_.PHYSICAL_TABLE_WIDTH - tablePosition.x;
+        break;
+    case 3: // bottom-right
         robotX = config_.PHYSICAL_TABLE_WIDTH - tablePosition.x;
         robotY = tablePosition.y;
-        break;
-    case 2: // bottom-left: X right, Y down
-        robotX = tablePosition.x;
-        robotY = tablePosition.y;
-        break;
-    case 3: // bottom-right: X left, Y up
-        robotX = config_.PHYSICAL_TABLE_WIDTH - tablePosition.x;
-        robotY = config_.PHYSICAL_TABLE_HEIGHT - tablePosition.y;
         break;
     default:
         robotX = tablePosition.x;
-        robotY = tablePosition.y;
+        robotY = config_.PHYSICAL_TABLE_HEIGHT - tablePosition.y;
         break;
     }
     return cv::Point2f(robotX, robotY);

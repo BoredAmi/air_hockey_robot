@@ -25,7 +25,7 @@ public:
     bool loadCachedPerspective(const std::string& filename = "table_perspective.yml");
     int getCroppedWidth() const { return croppedWidth_; }
     int getCroppedHeight() const { return croppedHeight_; }
-    void tableFound(bool found) { tableDetected_ = found; }
+    void tableFound(bool found);
     
 
 private:
