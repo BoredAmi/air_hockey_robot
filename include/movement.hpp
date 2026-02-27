@@ -25,6 +25,7 @@ public:
     bool moveTo(cv::Point2f tablePosition);
     void stop();
     cv::Point2f TableToRobotCoordinates(cv::Point2f tablePosition);
+    bool sendRawData(const void* data, size_t size);
 
 private:
     cv::Point2f lastPosition;

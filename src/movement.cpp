@@ -30,7 +30,8 @@ MovementController::MovementController(const Config& config, cv::Point2f initial
     }
 
     // Send START command
-    if (!sendCommand("START")) {
+    int startCode = 0;
+    if (!sendRawData(&startCode, sizeof(startCode))) {
         disconnect();
 #ifdef _WIN32
         WSACleanup();
@@ -65,15 +66,18 @@ bool MovementController::moveTo(cv::Point2f tablePosition) {
     float x = tablePosition.x; 
     float y = tablePosition.y;
 
-    std::stringstream ss;
-    ss << "MOVE," << x << "," << y;
-    sendCommand(ss.str());
+    struct {
+        int code;
+        float pos[2];
+    } movePacket = {2, {x, y}};
+    sendRawData(&movePacket, sizeof(movePacket));
     return true;
 }
 
 void MovementController::stop() {
     if (!connected) return;
-    sendCommand("STOP");
+    int stopCode = 1;
+    sendRawData(&stopCode, sizeof(stopCode));
 }
 
 bool MovementController::connectToRobot() {
@@ -180,6 +184,33 @@ void MovementController::disconnect() {
     }
     connected = false;
 }
+
+bool MovementController::sendRawData(const void* data, size_t size) {
+    if (!connected) return false;
+
+    int iResult = sendto(robotSocket, (const char*)data, size, 0,
+                        (struct sockaddr*)&serverAddr, serverAddrLen);
+    if (iResult ==
+#ifdef _WIN32
+        SOCKET_ERROR
+#else
+        -1
+#endif
+    ) {
+        std::cerr << "UDP send failed: " <<
+#ifdef _WIN32
+            WSAGetLastError()
+#else
+            strerror(errno)
+#endif
+            << std::endl;
+        connected = false;
+        return false;
+    }
+
+    return true;
+}
+
 cv::Point2f MovementController::TableToRobotCoordinates(cv::Point2f tablePosition) {
     // Convert table coordinates to robot coordinates based on origin corner
     // Robot coordinates: X increases in the direction shown by red arrow, Y increases in direction shown by green arrow

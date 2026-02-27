@@ -4,34 +4,35 @@ MODULE Cymbergaj
     !==================================================
     
     ! Socket communication variables
-    VAR socketdev udp_socket; 
-    VAR string received_string;
+    VAR socketdev udp_socket;
+    VAR rawbytes received_data;
+    VAR num command_code;
+    VAR num x_coord;
+    VAR num y_coord;
     
     ! Movement parameters - optimized for speed
-    CONST speeddata move_speed := v2000; 
-    CONST speeddata fast_speed := v7000; 
-    CONST zonedata move_zone := z0;
-    CONST num z_up := -10;
+    CONST speeddata move_speed := v2000;
+    CONST speeddata fast_speed := v7000;
+    CONST zonedata move_zone := z1;
     ! variables
     PERS wobjdata current_wobject;
     VAR robtarget target_position;
-    CONST robtarget home:=[[71.70,199.54,-29.84],[1,0.000407295,-3.3466E-06,-0.000426444],[-1,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget home:=[[0,0,0],[0.00693058,0.998893,-0.0460796,-0.00642376],[-1,0,1,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    TASK PERS wobjdata test_reakcji:=[FALSE,TRUE,"",[[265.777,-107.621,116.539],[0.999851,0.0129638,0.00494614,-0.0102413]],[[0,0,0],[1,0,0,0]]];
+    VAR bool informed:= false;
     
     !==================================================
     ! MAIN PROCEDURE - UDP server initialization
     !==================================================
     PROC main()
         AccSet 100, 100;
-
+        
         ! Create UDP socket on port 1025
-        SocketCreate udp_socket \UDP;
+        SocketCreate udp_socket \UDP ;
         SocketBind udp_socket, "0.0.0.0", 1025;
-
-        TPWrite "UDP Air Hockey server ready on port 1025";
-
+        
         ! Main UDP command loop
         ProcessUDPMessages;
-
         SocketClose udp_socket;
     ENDPROC
     !==================================================
@@ -42,84 +43,65 @@ MODULE Cymbergaj
         VAR num client_port;
         
         WHILE TRUE DO
-            received_string := "";
-            ! Receive packet
-            SocketReceiveFrom udp_socket \Str:=received_string, client_ip, client_port \Time:=0.1;
+            SocketReceiveFrom udp_socket \RawData:=received_data, client_ip, client_port \Time:=0.001;
             
-            ! Process valid commands
-            IF StrLen(received_string) > 0 THEN
-                ParseAndExecuteCommand received_string;
+            IF RawBytesLen(received_data) > 0 THEN
+                ParseAndExecuteCommand;
             ENDIF
         ENDWHILE
         
         ERROR
-            IF ERRNO = ERR_SOCK_TIMEOUT THEN
-                ! No message received, continue loop
-                RETURN;
-            ELSE
-                TPWrite "UDP error: " + NumToStr(ERRNO, 0);
-                RETURN;
-            ENDIF
+        IF ERRNO = ERR_SOCK_TIMEOUT THEN
+            RETURN;
+        ELSE
+            TPWrite "UDP error: " + NumToStr(ERRNO, 0);
+            RETURN;
+        ENDIF
     ENDPROC
     
     !==================================================
     ! COMMAND PARSER - Routes commands to handlers
     !==================================================
-    PROC ParseAndExecuteCommand(string cmd)
-        ! Clean input - remove line endings
-        cmd := StrMap(cmd, "\0A\0D", "");
-        ! Route commands to appropriate handlers
-        TEST cmd
-        DEFAULT:
-            IF StrMatch(cmd, 1, "STOP") = 1 THEN
-                HandleStopCommand;
-            ELSEIF StrMatch(cmd, 1, "MOVE,") = 1 THEN
-                HandleMoveCommand cmd;
-            ELSEIF StrMatch(cmd, 1, "START") = 1 THEN
+    PROC ParseAndExecuteCommand()
+        IF RawBytesLen(received_data) >= 4 THEN
+            UnpackRawBytes received_data, 1, command_code \IntX:=INT;
+            !TPWrite "Received command code: " + NumToStr(command_code, 0);
+            TEST command_code
+            CASE 0:
+                ! START command
                 setup;
-            ELSE
-                SendResponse("ERROR: Unknown command");
-            ENDIF
-        ENDTEST
+            CASE 1:
+                ! STOP command
+                HandleStopCommand;
+            CASE 2:
+                ! MOVE command
+                IF RawBytesLen(received_data) >= 12 THEN
+                    UnpackRawBytes received_data, 5, x_coord \Float4;
+                    UnpackRawBytes received_data, 9, y_coord \Float4;
+                    HandleMoveCommand x_coord, y_coord;
+                ELSE
+                    TPWrite "MOVE command: insufficient data";
+                ENDIF
+            DEFAULT:
+                TPWrite "Unknown command code: " + NumToStr(command_code, 0);
+            ENDTEST
+        ELSE
+            TPWrite "Data too short: " + NumToStr(RawBytesLen(received_data), 0) + " bytes";
+        ENDIF
         
-    ERROR
-        TPWrite "Command error: " ;
-        SendResponse("ERROR: ");
+        ERROR
+        TPWrite "Command error";
     ENDPROC
     
-
+    
     !==================================================
     ! MOVEMENT HANDLER - Processes MOVE,X,Y commands
     !==================================================
-    PROC HandleMoveCommand(string cmd)
-        VAR num x_coord;    ! Parsed X coordinate (mm)
-        VAR num y_coord;    ! Parsed Y coordinate (mm)
-        VAR num pos1;       ! First comma position
-        VAR num pos2;       ! Second comma position
-        
-        ! Parse command format: "MOVE,X,Y"
-        pos1 := StrFind(cmd, 1, ",");
-        pos2 := StrFind(cmd, pos1 + 1, ",");
-        
-        ! Validate command structure
-        IF pos1 = 0 OR pos2 = 0 THEN
-            SendResponse("ERROR: Format should be MOVE,X,Y");
-            RETURN;
-        ENDIF
-        
-        ! Extract and validate numeric coordinates
-        IF NOT(StrToVal(StrPart(cmd, pos1 + 1, pos2 - pos1 - 1), x_coord) AND
-               StrToVal(StrPart(cmd, pos2 + 1, StrLen(cmd) - pos2), y_coord)) THEN
-            SendResponse("ERROR: Invalid coordinates");
-            RETURN;
-        ENDIF
-        
-        
-        ! Execute movement relative to base_position
+    PROC HandleMoveCommand(num x_coord, num y_coord)
+        !TPWrite "Moving to X=" + NumToStr(x_coord, 2) + ", Y=" + NumToStr(y_coord, 2);
         target_position := offs(home, x_coord, y_coord, 0);
-        MoveL target_position, fast_speed, move_zone, tool0 ;
+        MoveL target_position, fast_speed, move_zone,  tool0,\WObj:=test_reakcji ;
         
-        SendResponse("OK");
     ENDPROC
     
     !==================================================
@@ -127,24 +109,15 @@ MODULE Cymbergaj
     !==================================================
     PROC HandleStopCommand()
         TPWrite "Stop command received";
-        ! Return to base position safely with smooth movement
-        target_position := home; 
-        MoveL Offs(target_position, 0, 0, z_up), fast_speed, move_zone, tool0 ;
-        SendResponse("STOPPED");
+        target_position := home;
+        MoveL Offs(target_position, 0, 0, 0), fast_speed, move_zone, tool0,\WObj:=test_reakcji ;
     ENDPROC
-    
     !==================================================
-    ! RESPONSE SENDER - Optional UDP response (disabled for speed)
+    ! START - Moves robot to home position
     !==================================================
-    PROC SendResponse(string msg)
-        ! For UDP speed, we skip responses to minimize latency
-        ! Uncomment below if you need confirmation:
-        ! SocketSendTo udp_socket \Str:=msg + "\0D\0A" \RemoteAddress:=client_ip \RemotePort:=client_port;
-    ENDPROC
-    
     PROC setup()
-        MoveJ Offs(home,0,0,z_up),move_speed,z5,tool0;
-        MoveL home, move_speed,fine,tool0 ;
-        ! No response for UDP speed
+        TPWrite "Start command received";
+        MoveJ Offs(home,0,0,0),move_speed,z5, tool0,\WObj:=test_reakcji;
+        MoveL home, move_speed,fine, tool0,\WObj:=test_reakcji ;
     ENDPROC
 ENDMODULE
