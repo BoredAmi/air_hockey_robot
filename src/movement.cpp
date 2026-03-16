@@ -54,8 +54,9 @@ bool MovementController::moveTo(cv::Point2f tablePosition) {
         std::cerr << "Warning: Attempting to move to out-of-bounds position (" << tablePosition.x << ", " << tablePosition.y << ")" << std::endl;
         return false;
     }
-    if (sqrt(pow(lastPosition.x - tablePosition.x, 2) + pow(lastPosition.y - tablePosition.y, 2)) < 2) {
-        std::cout << "Already close to target position, skipping move command." << std::endl;
+    float distance = sqrt(pow(lastPosition.x - tablePosition.x, 2) + pow(lastPosition.y - tablePosition.y, 2));
+    if (distance < 2.0) {
+        std::cout << "Already close to target position, skipping move command. Distance: " << distance << std::endl;
         return false;
     }
     lastPosition = tablePosition;

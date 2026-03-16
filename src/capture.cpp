@@ -9,9 +9,17 @@ ImageCapture::~ImageCapture() {
     }
 }
 cv::RotatedRect ImageCapture::detectTable(cv::Mat& image) {
-    cv::Mat gray, thresh, morphed;
-    cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
+    cv::Mat gray;
+    if (image.channels() == 1) {
+        gray = image.clone();  // Already grayscale
+    } else if (image.channels() == 3) {
+        cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
+    } else {
+        std::cerr << "Unsupported image format in detectTable: " << image.channels() << " channels" << std::endl;
+        return cv::RotatedRect();
+    }
     
+    cv::Mat thresh, morphed;
     cv::threshold(gray, thresh, 150, 255, cv::THRESH_BINARY_INV);  // Invert to get black as white
     
     // Morphological closing to connect outline segments
@@ -60,15 +68,16 @@ bool ImageCapture::initialize() {
             return false;
         }
     } else {
-        cap_.open(config_.CAMERA_INDEX);
+        cap_.open(config_.CAMERA_INDEX, cv::CAP_V4L2);  // Use V4L2 backend for USB cameras on Linux
         if (!cap_.isOpened()) {
             std::cerr << "Error: Could not open camera " << config_.CAMERA_INDEX << std::endl;
             return false;
         }
-        // Set camera properties for better performance
-        cap_.set(cv::CAP_PROP_FRAME_WIDTH, 640);
-        cap_.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
-        cap_.set(cv::CAP_PROP_FPS, 90);
+        // Set camera properties for better performance - use MJPG for higher FPS
+        cap_.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M','J','P','G'));  // Force MJPG format
+        cap_.set(cv::CAP_PROP_FRAME_WIDTH, 1280);
+        cap_.set(cv::CAP_PROP_FRAME_HEIGHT, 720);
+        cap_.set(cv::CAP_PROP_FPS, 120);  
         
         // Verify the settings were applied
         double actualWidth = cap_.get(cv::CAP_PROP_FRAME_WIDTH);
@@ -148,6 +157,13 @@ cv::Mat ImageCapture::captureRawImage() {
     cv::Mat frame;
     if (cap_.isOpened()) {
         cap_ >> frame;
+        // If using a grayscale camera, ensure it's handled
+        if (!frame.empty() && frame.channels() == 1) {
+            // Already grayscale, do nothing
+        } else if (!frame.empty() && frame.channels() == 3) {
+            // Convert to grayscale if needed for consistency
+            cv::cvtColor(frame, frame, cv::COLOR_BGR2GRAY);
+        }
     }
     return frame;
 }

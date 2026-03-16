@@ -68,10 +68,16 @@ int main() {
             PuckPosition puckPos = {capture.imageToTableCoordinates(puckCenter, capture.getCroppedWidth(), capture.getCroppedHeight()), currentTimeUs};
             predictor.addMeasurement(puckPos);
 
-            // Only predict if puck is outside defense zone 
+            // Only predict if puck is outside defense zone and we have confident velocity estimate
             if (!predictor.isInDefenseZone(puckPos.position)) {
-                // Predict entry to defense zone
-                predictedEntryTable = predictor.predictEntryToDefenseZone(currentTimeUs);
+                double velocityConfidence = predictor.getVelocityConfidence();
+                if (velocityConfidence > 0.3) { // Require 30% confidence before predicting
+                    // Predict entry to defense zone
+                    predictedEntryTable = predictor.predictEntryToDefenseZone(currentTimeUs);
+                } else {
+                    // Low confidence - don't predict yet
+                    predictedEntryTable = cv::Point2f(-1, -1);
+                }
             }
         }
 

@@ -47,3 +47,7 @@ void KalmanFilter::setState(const Eigen::VectorXd& state) {
 void KalmanFilter::setF(const Eigen::MatrixXd& F) {
     F_ = F;
 }
+
+Eigen::MatrixXd KalmanFilter::getCovariance() const {
+    return P_;
+}
