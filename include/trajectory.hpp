@@ -23,7 +23,8 @@ public:
     double getDefenseZoneXMax() const { return zoneXMax; }
     double getDefenseZoneYMin() const { return zoneYMin; }
     double getDefenseZoneYMax() const { return zoneYMax; }
-    private:
+    double getVelocityConfidence();
+private:
     const Config& config_;
     int currentZoneIndex_;
     double zoneYMax, zoneYMin, zoneXMin, zoneXMax;

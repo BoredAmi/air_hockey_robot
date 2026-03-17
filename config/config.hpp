@@ -10,7 +10,7 @@ class Config {
 public:
     // Camera configuration
     int CAMERA_INDEX = 0;  // Camera device index
-    bool USE_LIBCAMERA_BOOL = true;  // For use in code
+    bool USE_LIBCAMERA_BOOL = false;  // For use in code
     bool ENABLE_UNDISTORTION = false;  // Enable real-time lens distortion correction
 
     // Calibration parameters

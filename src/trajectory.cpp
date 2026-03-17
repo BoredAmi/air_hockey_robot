@@ -208,3 +208,11 @@ void TrajectoryPredictor::setDefenseZone(int zoneIndex) {
         break;
     }
 }
+double TrajectoryPredictor::getVelocityConfidence() {
+    Eigen::MatrixXd P = kalmanFilter_.getCovariance();
+    double varVx = P(2, 2);
+    double varVy = P(3, 3);
+    double confidenceVx = 1.0 / (1.0 + varVx); 
+    double confidenceVy = 1.0 / (1.0 + varVy);
+    return std::min(confidenceVx, confidenceVy); 
+}
