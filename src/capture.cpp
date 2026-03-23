@@ -143,10 +143,10 @@ cv::Mat ImageCapture::captureImage() {
             // Crop to bounding rect
             cv::Mat cropped = frame(tableRect);
             // Warp to straighten the table
-            cv::warpPerspective(cropped, frame, tablePerspectiveMatrix_, tableOutputSize_);
-            cv::resize(frame, frame, cv::Size(256, 192));  // Resize for faster processing
-            croppedWidth_ = 256;
-            croppedHeight_ = 192;
+            //cv::warpPerspective(cropped, frame, tablePerspectiveMatrix_, tableOutputSize_);
+            cv::resize(cropped, frame, cv::Size(cropped.cols, cropped.rows));  
+            croppedWidth_ = cropped.cols;
+            croppedHeight_ = cropped.rows;
         }
     }
     return frame;

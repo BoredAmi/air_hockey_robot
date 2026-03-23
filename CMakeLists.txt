@@ -3,19 +3,15 @@ project(air_hockey_robot)
 
 set(CMAKE_CXX_STANDARD 17)
 
-# --- SEKCJA OPENCV ---
+
 if(WIN32)
-    # Ścieżka dla Windows (zostawiamy Twoją)
     set(OpenCV_DIR "C:/msys64/mingw64/share/opencv4")
 else()
-    # Na Linuxie pozwól CMake samemu znaleźć OpenCV w /usr/local
-    # Jeśli masz wersję z apt, upewnij się, że usunąłeś libopencv-dev, 
-    # wtedy CMake na 100% wybierze Twoją skompilowaną wersję.
     set(OpenCV_DIR "/usr/local/lib/cmake/opencv4")
 endif()
 
 find_package(OpenCV REQUIRED)
-# ---------------------
+
 
 find_package(nlohmann_json REQUIRED)
 
@@ -30,7 +26,6 @@ endif()
 
 find_package(Eigen3 REQUIRED)
 
-# Uproszczenie: include_directories raz dla całego projektu
 include_directories(
     include
     config
@@ -39,17 +34,21 @@ include_directories(
     ${LIBCAMERA_INCLUDE_DIRS}
 )
 
-# --- TARGETY ---
 
-# Główny robot
 add_executable(air_hockey_robot apps/main.cpp src/capture.cpp src/kalman.cpp src/trajectory.cpp src/movement.cpp)
 if(WIN32)
     target_link_libraries(air_hockey_robot ${OpenCV_LIBS} Eigen3::Eigen ws2_32)
 else()
     target_link_libraries(air_hockey_robot ${OpenCV_LIBS} Eigen3::Eigen ${LIBCAMERA_LIBRARIES})
 endif()
+add_executable(preview_app apps/app_with_preview.cpp src/capture.cpp src/kalman.cpp src/trajectory.cpp src/movement.cpp)
+if(WIN32)
+    target_link_libraries(preview_app ${OpenCV_LIBS} Eigen3::Eigen ws2_32)
+else()
+    target_link_libraries(preview_app ${OpenCV_LIBS} Eigen3::Eigen ${LIBCAMERA_LIBRARIES})
+endif()
 
-# Testy i benchmarki
+
 add_executable(test_trajectory apps/test_trajectory.cpp src/capture.cpp src/kalman.cpp src/trajectory.cpp)
 target_link_libraries(test_trajectory ${OpenCV_LIBS} Eigen3::Eigen ${LIBCAMERA_LIBRARIES})
 

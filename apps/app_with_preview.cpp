@@ -21,6 +21,12 @@ int main() {
     TrajectoryPredictor predictor(config);
     MovementController mover(config);
 
+    cv::namedWindow("Air Hockey Defense", cv::WINDOW_NORMAL);
+    cv::resizeWindow("Air Hockey Defense", 1280, 720);
+
+    std::cout << "Starting air hockey robot defense..." << std::endl;
+    std::cout << "Controls:" << std::endl;
+    std::cout << "  Q: Quit" << std::endl;
 
     bool running = true;
 
@@ -61,7 +67,7 @@ int main() {
         if (puckDetected) {
             PuckPosition puckPos = {capture.imageToTableCoordinates(puckCenter, capture.getCroppedWidth(), capture.getCroppedHeight()), currentTimeUs};
             predictor.addMeasurement(puckPos);
-            
+
             // Only predict if puck is outside defense zone and we have confident velocity estimate
             if (!predictor.isInDefenseZone(puckPos.position)) {
                 double velocityConfidence = predictor.getVelocityConfidence();
@@ -75,9 +81,25 @@ int main() {
             }
         }
 
+        // Draw defense zone
+
+        
+        cv::Point2f zoneTopLeft = capture.TableToImageCoordinates(cv::Point2f(predictor.getDefenseZoneXMin(), predictor.getDefenseZoneYMin()), capture.getCroppedWidth(), capture.getCroppedHeight());
+        cv::Point2f zoneBottomRight = capture.TableToImageCoordinates(cv::Point2f(predictor.getDefenseZoneXMax(), predictor.getDefenseZoneYMax()), capture.getCroppedWidth(), capture.getCroppedHeight());
+        cv::rectangle(frame, zoneTopLeft, zoneBottomRight, cv::Scalar(255, 0, 0), 2);  // Blue rectangle for zone
+
+        if (puckDetected) {
+            // Draw puck
+            cv::circle(frame, puckCenter, 10, cv::Scalar(0, 255, 0), -1);  // Green circle
+            cv::putText(frame, "Puck", puckCenter + cv::Point2f(15, 0), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+        }
 
         if (predictedEntryTable.x >= 0 && predictedEntryTable.y >= 0) {
             
+            // Draw predicted entry
+            cv::Point2f predictedImage = capture.TableToImageCoordinates(predictedEntryTable, capture.getCroppedWidth(), capture.getCroppedHeight());
+            cv::circle(frame, predictedImage, 10, cv::Scalar(0, 0, 255), -1);  // Red circle
+            cv::putText(frame, "Predicted Entry", predictedImage + cv::Point2f(15, 0), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 1);
 
             // Move robot
             cv::Point2f robotPosInTable(predictedEntryTable.x, predictedEntryTable.y);
@@ -90,9 +112,27 @@ int main() {
                 std::cout << "Point too close to last position" << std::endl;
             }
         }
-        //std::cout << "Current FPS: " << fps << std::endl;
+
+        // Display FPS
+        cv::putText(frame, "FPS: " + std::to_string((int)fps), cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255, 255, 255), 2);
+
+        cv::imshow("Air Hockey Defense", frame);
+
+        int key = cv::waitKey(1);  // 30ms delay
+        if (key == 'f'){
+            TableFound = true;
+            capture.tableFound(true);
+        }
+         else if (key == 'l'){
+            TableFound = false;
+            capture.tableFound(false);
+        }
+        if (key == 'q' || key == 'Q') {
+            running = false;
+        }
     }
 
+    cv::destroyAllWindows();
     mover.stop();
     std::cout << "Stopped." << std::endl;
     return 0;
