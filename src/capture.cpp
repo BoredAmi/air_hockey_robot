@@ -60,7 +60,6 @@ cv::RotatedRect ImageCapture::detectTable(cv::Mat& image) {
 
 bool ImageCapture::initialize() {
     if (config_.USE_LIBCAMERA_BOOL) {
-        // This is your current setup. It gives 90 FPS but the FOV is ~40% of the sensor.
         std::string pipeline = "libcamerasrc ! video/x-raw,width=640,height=480,framerate=90/1 ! appsink sync=false";   
         cap_.open(pipeline, cv::CAP_GSTREAMER);
         if (!cap_.isOpened()) {
@@ -75,9 +74,9 @@ bool ImageCapture::initialize() {
         }
         // Set camera properties for better performance - use MJPG for higher FPS
         cap_.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M','J','P','G'));  // Force MJPG format
-        cap_.set(cv::CAP_PROP_FRAME_WIDTH, 1280);
-        cap_.set(cv::CAP_PROP_FRAME_HEIGHT, 720);
-        cap_.set(cv::CAP_PROP_FPS, 120);  
+        cap_.set(cv::CAP_PROP_FRAME_WIDTH, 640);
+        cap_.set(cv::CAP_PROP_FRAME_HEIGHT, 400);
+        cap_.set(cv::CAP_PROP_FPS, 240);  
         
         // Verify the settings were applied
         double actualWidth = cap_.get(cv::CAP_PROP_FRAME_WIDTH);
