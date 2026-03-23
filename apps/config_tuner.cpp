@@ -29,9 +29,12 @@ int main() {
 
     cv::namedWindow("Threshold Preview", cv::WINDOW_NORMAL);
     cv::resizeWindow("Threshold Preview", 640, 480);
+    cv::namedWindow("Table Detection Preview", cv::WINDOW_NORMAL);
+    cv::resizeWindow("Table Detection Preview", 640, 480);
 
     // Slider variables
     int puck_threshold = config.PUCK_THRESHOLD;
+    int table_detect_threshold = config.TABLE_DETECT_THRESHOLD;
     int puck_min_area = config.PUCK_MIN_AREA;
     int puck_max_area = config.PUCK_MAX_AREA;
     int defense_zone_height = (int)(config.DEFENSE_ZONE_HEIGHT * 10);
@@ -41,6 +44,7 @@ int main() {
 
     // Trackbars for parameters
     cv::createTrackbar("PUCK_THRESHOLD", "Parameter Controls", &puck_threshold, 255);
+    cv::createTrackbar("TABLE_DETECT_THRESHOLD", "Parameter Controls", &table_detect_threshold, 255);
     cv::createTrackbar("PUCK_MIN_AREA", "Parameter Controls", &puck_min_area, 10000);
     cv::createTrackbar("PUCK_MAX_AREA", "Parameter Controls", &puck_max_area, 100000);
     cv::createTrackbar("DEFENSE_ZONE_HEIGHT*10", "Parameter Controls", &defense_zone_height, 5000);  // 0-500 mm
@@ -65,6 +69,7 @@ int main() {
     while (running) {
         // Update config from sliders
         config.PUCK_THRESHOLD = puck_threshold;
+        config.TABLE_DETECT_THRESHOLD = table_detect_threshold;
         config.PUCK_MIN_AREA = puck_min_area;
         config.PUCK_MAX_AREA = puck_max_area;
         config.DEFENSE_ZONE_HEIGHT = defense_zone_height / 10.0f;
@@ -80,13 +85,33 @@ int main() {
             continue;
         }
 
+        // Also capture a raw frame (not cropped/perspective-corrected) for table-detection preview
+        cv::Mat rawFrame = capture.captureRawImage();
+        if (rawFrame.empty()) {
+            // fallback to processed frame if raw not available
+            rawFrame = frame.clone();
+        }
+
         cv::Mat gray;
         cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
 
-        // Show threshold preview
+        // Show puck threshold preview
         cv::Mat thresh;
         cv::threshold(gray, thresh, config.PUCK_THRESHOLD, 255, cv::THRESH_BINARY_INV);
         cv::imshow("Threshold Preview", thresh);
+
+        // Show table detection preview based on the RAW camera frame (not cropped)
+        cv::Mat rawGray;
+        if (rawFrame.channels() == 3) {
+            cv::cvtColor(rawFrame, rawGray, cv::COLOR_BGR2GRAY);
+        } else {
+            rawGray = rawFrame.clone();
+        }
+        cv::Mat tableThresh;
+        cv::threshold(rawGray, tableThresh, config.TABLE_DETECT_THRESHOLD, 255, cv::THRESH_BINARY_INV);
+        cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
+        cv::morphologyEx(tableThresh, tableThresh, cv::MORPH_CLOSE, kernel);
+        cv::imshow("Table Detection Preview", tableThresh);
 
         cv::Point2f puckCenter = capture.detectPuck(gray);
         bool puckDetected = (puckCenter.x >= 0 && puckCenter.y >= 0);
@@ -236,6 +261,7 @@ int main() {
             config.resetToDefaults();
             // Update slider variables from default config
             puck_threshold = config.PUCK_THRESHOLD;
+            table_detect_threshold = config.TABLE_DETECT_THRESHOLD;
             puck_min_area = config.PUCK_MIN_AREA;
             puck_max_area = config.PUCK_MAX_AREA;
             defense_zone_height = (int)(config.DEFENSE_ZONE_HEIGHT * 10);
@@ -244,6 +270,7 @@ int main() {
             robot_origin_corner = config.robot_origin_corner;
             // Update trackbar positions
             cv::setTrackbarPos("PUCK_THRESHOLD", "Parameter Controls", puck_threshold);
+            cv::setTrackbarPos("TABLE_DETECT_THRESHOLD", "Parameter Controls", table_detect_threshold);
             cv::setTrackbarPos("PUCK_MIN_AREA", "Parameter Controls", puck_min_area);
             cv::setTrackbarPos("PUCK_MAX_AREA", "Parameter Controls", puck_max_area);
             cv::setTrackbarPos("DEFENSE_ZONE_HEIGHT*10", "Parameter Controls", defense_zone_height);

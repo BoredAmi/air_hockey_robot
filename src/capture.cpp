@@ -20,7 +20,7 @@ cv::RotatedRect ImageCapture::detectTable(cv::Mat& image) {
     }
     
     cv::Mat thresh, morphed;
-    cv::threshold(gray, thresh, 150, 255, cv::THRESH_BINARY_INV);  // Invert to get black as white
+    cv::threshold(gray, thresh, config_.TABLE_DETECT_THRESHOLD, 255, cv::THRESH_BINARY_INV);  // Invert to get black as white
     
     // Morphological closing to connect outline segments
     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));

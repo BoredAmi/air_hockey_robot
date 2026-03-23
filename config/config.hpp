@@ -36,6 +36,7 @@ public:
     int PUCK_RADIUS_MIN = 10;
     int PUCK_RADIUS_MAX = 30;
     int PUCK_THRESHOLD = 100;  // Threshold for black puck detection
+    int TABLE_DETECT_THRESHOLD = 150; // Threshold for table detection 
     int PUCK_MIN_AREA = 150; // Minimum area for blob detection
     int PUCK_MAX_AREA = 10000; // Maximum area for blob detection
 
@@ -100,6 +101,7 @@ public:
         PUCK_RADIUS_MIN = 10;
         PUCK_RADIUS_MAX = 30;
         PUCK_THRESHOLD = 100;
+        TABLE_DETECT_THRESHOLD = 150;
         PUCK_MIN_AREA = 150;
         PUCK_MAX_AREA = 10000;
 
@@ -130,6 +132,7 @@ private:
             {"PUCK_RADIUS_MIN", c.PUCK_RADIUS_MIN},
             {"PUCK_RADIUS_MAX", c.PUCK_RADIUS_MAX},
             {"PUCK_THRESHOLD", c.PUCK_THRESHOLD},
+            {"TABLE_DETECT_THRESHOLD", c.TABLE_DETECT_THRESHOLD},
             {"PUCK_MIN_AREA", c.PUCK_MIN_AREA},
             {"PUCK_MAX_AREA", c.PUCK_MAX_AREA},
             {"ROBOT_IP", c.ROBOT_IP},
@@ -157,6 +160,7 @@ private:
         c.PUCK_RADIUS_MIN = j.value("PUCK_RADIUS_MIN", 10);
         c.PUCK_RADIUS_MAX = j.value("PUCK_RADIUS_MAX", 30);
         c.PUCK_THRESHOLD = j.value("PUCK_THRESHOLD", 100);
+        c.TABLE_DETECT_THRESHOLD = j.value("TABLE_DETECT_THRESHOLD", 150);
         c.PUCK_MIN_AREA = j.value("PUCK_MIN_AREA", 150);
         c.PUCK_MAX_AREA = j.value("PUCK_MAX_AREA", 10000);
         c.ROBOT_IP = j.value("ROBOT_IP", "192.168.125.1");

@@ -13,7 +13,7 @@ int main() {
     }
 
     cv::namedWindow("Camera Preview (raw, before processing)", cv::WINDOW_NORMAL);
-    cv::resizeWindow("Camera Preview (raw, before processing)", 800, 600);
+    cv::resizeWindow("Camera Preview (raw, before processing)", 640, 400);
 
     std::cout << "Camera preview showing RAW image (before any processing)." << std::endl;
     std::cout << "This is exactly what the camera captures, using the same capture methods." << std::endl;
