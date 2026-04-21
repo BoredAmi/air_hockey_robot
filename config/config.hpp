@@ -20,11 +20,11 @@ public:
 
     // Image dimensions (pixels)
     int TABLE_WIDTH = 640;
-    int TABLE_HEIGHT = 480;
+    int TABLE_HEIGHT = 400;
 
     // Physical table dimensions (mm)
-    float PHYSICAL_TABLE_WIDTH = 505.0f;  // 1 meter
-    float PHYSICAL_TABLE_HEIGHT = 520.0f;  // 0.5 meters
+    float PHYSICAL_TABLE_WIDTH = 1155.0f;  // 1 meter
+    float PHYSICAL_TABLE_HEIGHT = 692.0f;  // 0.5 meters
     float DEFENSE_ZONE_HEIGHT = 100.0f;    // height of defense zone
     float DEFENSE_ZONE_WIDTH = 200.0f; // width of defense zone
 

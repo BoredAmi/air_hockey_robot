@@ -223,8 +223,8 @@ cv::Point2f MovementController::TableToRobotCoordinates(cv::Point2f tablePositio
         robotY = tablePosition.x;
         break;
     case 1: // top-right
-        robotX = config_.PHYSICAL_TABLE_WIDTH - tablePosition.x;
-        robotY = tablePosition.y;
+        robotY = config_.PHYSICAL_TABLE_WIDTH - tablePosition.x;
+        robotX = tablePosition.y;
         break;
     case 2: // bottom-left
         robotX = tablePosition.x;
