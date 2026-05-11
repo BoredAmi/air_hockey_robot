@@ -184,27 +184,45 @@ bool ImageCapture::saveImage(const cv::Mat& image, const std::string& filename) 
 }
 
 cv::Point2f ImageCapture::detectPuck(const cv::Mat& grayImage) {
-    cv::Mat thresh;
-    cv::threshold(grayImage, thresh, config_.PUCK_THRESHOLD, 255, cv::THRESH_BINARY_INV);  // Invert for black puck
+    if (grayImage.empty()) return cv::Point2f(-1, -1);
 
-    std::vector<std::vector<cv::Point>> contours;
-    cv::findContours(thresh, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+    cv::Mat blurred;
+    cv::GaussianBlur(grayImage, blurred, cv::Size(5, 5), 0);
 
-    for (const auto& contour : contours) {
-        double area = cv::contourArea(contour);
-        if (area < config_.PUCK_MIN_AREA || area > config_.PUCK_MAX_AREA) continue;
+    std::vector<int> threshTypes = { cv::THRESH_BINARY, cv::THRESH_BINARY_INV };
 
-        double perimeter = cv::arcLength(contour, true);
-        double circularity = 4 * CV_PI * area / (perimeter * perimeter);
-        if (circularity < 0.5) continue;  // Not circular enough
+    double bestScore = 0.0;
+    cv::Point2f bestCenter(-1, -1);
 
-        cv::Point2f center;
-        float radius;
-        cv::minEnclosingCircle(contour, center, radius);
-        return center;
+    for (int t : threshTypes) {
+        cv::Mat thresh;
+        cv::threshold(blurred, thresh, config_.PUCK_THRESHOLD, 255, t);
+
+        cv::morphologyEx(thresh, thresh, cv::MORPH_OPEN, cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3)));
+
+        std::vector<std::vector<cv::Point>> contours;
+        cv::findContours(thresh, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+        for (const auto& contour : contours) {
+            double area = cv::contourArea(contour);
+            if (area < config_.PUCK_MIN_AREA || area > config_.PUCK_MAX_AREA) continue;
+
+            double perimeter = cv::arcLength(contour, true);
+            if (perimeter <= 1e-6) continue;
+            double circularity = 4 * CV_PI * area / (perimeter * perimeter);
+
+            double score = circularity * area;
+            if (circularity >= 0.5 && score > bestScore) {
+                cv::Point2f center;
+                float radius;
+                cv::minEnclosingCircle(contour, center, radius);
+                bestScore = score;
+                bestCenter = center;
+            }
+        }
     }
 
-    return cv::Point2f(-1, -1);
+    return bestCenter;
 }
 
 cv::Point2f ImageCapture::imageToTableCoordinates(cv::Point2f imagePoint, int imageWidth, int imageHeight) {
