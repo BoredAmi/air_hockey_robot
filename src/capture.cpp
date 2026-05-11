@@ -211,13 +211,24 @@ cv::Point2f ImageCapture::detectPuck(const cv::Mat& grayImage) {
             if (perimeter <= 1e-6) continue;
             double circularity = 4 * CV_PI * area / (perimeter * perimeter);
 
-            double score = circularity * area;
-            if (circularity >= 0.5 && score > bestScore) {
-                cv::Point2f center;
-                float radius;
-                cv::minEnclosingCircle(contour, center, radius);
-                bestScore = score;
-                bestCenter = center;
+                double score = circularity * area;
+                if (circularity >= 0.5 && score > bestScore) {
+                    cv::Point2f center;
+                    float radius;
+                    cv::minEnclosingCircle(contour, center, radius);
+
+                    // Ignore detections too close to table borders (3 cm margin)
+                    const double borderMm = 30.0; // 30 mm = 3 cm
+                    int imgW = grayImage.cols;
+                    int imgH = grayImage.rows;
+                    double marginX = (borderMm / config_.PHYSICAL_TABLE_WIDTH) * imgW;
+                    double marginY = (borderMm / config_.PHYSICAL_TABLE_HEIGHT) * imgH;
+                    if (center.x < marginX || center.x > (imgW - marginX) || center.y < marginY || center.y > (imgH - marginY)) {
+                        continue; // Skip noisy border detections
+                    }
+
+                    bestScore = score;
+                    bestCenter = center;
             }
         }
     }
