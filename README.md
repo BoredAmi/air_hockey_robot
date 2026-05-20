@@ -17,12 +17,13 @@ An autonomous air hockey robot system that uses computer vision to detect the pu
 - **OpenCV 4.x**: For image processing and computer vision.
 - **Eigen 3.x**: For matrix operations in Kalman filtering.
 - **Boost**: For UDP communication (Asio library).
+- **nlohmann-json**: For JSON config serialization.
 - **CMake 3.10+**: For building the project.
 - **C++17 Compatible Compiler**: GCC, Clang, or MSVC.
 
 ### Hardware Requirements
 - **Camera**: USB camera for puck detection.
-- **ABB Robotic Arm**: Compatible with RAPID programming (e.g., IRB 120 series) for movement control with origin in the left corner of the table from goal looking from robots perspective
+- **ABB Robotic Arm**: Compatible with RAPID programming
 - **Air Hockey Table**: Physical setup with known dimensions for coordinate mapping.
 - **Computer/Raspberry Pi**: For running the vision and control software.
 
@@ -35,9 +36,9 @@ An autonomous air hockey robot system that uses computer vision to detect the pu
 4. Configure with CMake: `cmake ..`
 5. Build: `cmake --build . --config Release`
 
-### Building on Raspberry Pi (Deployment)
+### Building on Raspberry Pi / Linux (Deployment)
 1. Update system: `sudo apt update && sudo apt upgrade`
-2. Install dependencies: `sudo apt install libopencv-dev libeigen3-dev libboost-all-dev cmake build-essential`
+2. Install dependencies: `sudo apt install libopencv-dev libeigen3-dev libboost-all-dev nlohmann-json3-dev pkg-config libcamera-dev cmake build-essential`
 3. Comment out OpenCV_DIR in CMakeLists.txt if using system-installed OpenCV.
 4. Follow the same build steps as Windows.
 
@@ -49,15 +50,6 @@ Calibrate the camera for accurate undistortion:
 4. Calibration data saves to `camera_calibration.yml` (loaded automatically by the main app).
 
 ## Usage
-
-### Applications
-- **`./air_hockey_robot`**: Main application - runs full system with live detection, prediction, and robot control.
-- **`./calibrate_camera`**: Camera calibration tool.
-- **`./benchmark`**: Performance benchmarking for detection and prediction.
-- **`./test_puck_detection`**: Test puck detection on static images.
-- **`./test_trajectory`**: Test trajectory prediction.
-- **`./test_live_detection`**: Test real-time detection and prediction.
-- **`./test_udp`**: Test UDP communication with the robot.
 
 ### Running the System
 1. Ensure camera and robot are connected and powered.
@@ -72,24 +64,6 @@ Edit `config/config.hpp` for parameters:
 - Puck detection: `PUCK_THRESHOLD`, radius ranges.
 - Kalman filter: Process/measurement noise, prediction steps.
 - Robot control: UDP IP/port, movement speeds.
-
-## Testing
-
-Run individual tests to validate components:
-- Puck detection: `./test_puck_detection` (uses images in `img/`).
-- Trajectory: `./test_trajectory`.
-- Live system: `./test_live_detection`.
-- Networking: `./test_udp` (requires robot connection).
-
-Use `./benchmark` to measure frame rates and optimize performance.
-
-## Troubleshooting
-
-- **Camera Issues**: Check device index in config; ensure permissions on Raspberry Pi.
-- **Calibration Errors**: Verify chessboard pattern matches config; capture more images.
-- **Robot Communication**: Confirm IP/port in config; check firewall/UDP settings.
-- **Performance**: Reduce image resolution or increase thresholds for faster processing.
-- **Build Errors**: Ensure all dependencies are installed; check CMake output for missing libraries.
 
 ## Project Structure
 
