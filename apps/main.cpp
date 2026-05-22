@@ -9,6 +9,7 @@
 #include <sstream>
 #include <iomanip>
 #include <filesystem>
+#include <ctime>
 
 int main() {
     Config config;
@@ -81,13 +82,13 @@ int main() {
                     double speed = std::hypot(dx, dy) / dt; // mm/s
                     if (speed > MAX_PUCK_SPEED_MM_S) {
                         acceptSample = false;
-                        std::cout << "Skipping sample: high speed " << speed << " mm/s" << std::endl;
+                        // std::cout << "Skipping sample: high speed " << speed << " mm/s" << std::endl;
                     } else if (speed < MIN_PUCK_SPEED_MM_S) {
                         // Puck nearly still -> clear predictor and ignore this sample
                         predictor.reset();
                         lastPuckValid = false;
                         acceptSample = false;
-                        std::cout << "Resetting predictor: puck nearly still (" << speed << " mm/s)" << std::endl;
+                       // std::cout << "Resetting predictor: puck nearly still (" << speed << " mm/s)" << std::endl;
                     }
                 }
             }
@@ -235,6 +236,18 @@ int main() {
 
                     line4 << "ShortPred(mm):" << std::fixed << std::setprecision(0) << predictedShort.x << "," << predictedShort.y;
 
+                    auto nowSys = std::chrono::system_clock::now();
+                    std::time_t nowTime = std::chrono::system_clock::to_time_t(nowSys);
+                    std::tm localTime = {};
+    #if defined(_WIN32) || defined(_WIN64)
+                    localtime_s(&localTime, &nowTime);
+    #else
+                    localtime_r(&nowTime, &localTime);
+    #endif
+                    auto msPart = std::chrono::duration_cast<std::chrono::milliseconds>(nowSys.time_since_epoch()).count() % 1000;
+                    std::ostringstream timeStamp;
+                    timeStamp << std::put_time(&localTime, "%Y-%m-%d %H:%M:%S") << "." << std::setw(3) << std::setfill('0') << msPart;
+
                     int imgX = 10;
                     int y = 30;
                     int lineH = 28;
@@ -242,6 +255,7 @@ int main() {
                     cv::putText(debugImg, line2.str(), cv::Point(imgX, y + lineH), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2);
                     cv::putText(debugImg, line3.str(), cv::Point(imgX, y + lineH*2), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 255, 255), 1);
                     cv::putText(debugImg, line4.str(), cv::Point(imgX, y + lineH*3), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 255, 255), 1);
+                    cv::putText(debugImg, timeStamp.str(), cv::Point(imgX, y + lineH*4), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 255, 255), 1);
 
                     std::string outDir = "predicted_entries";
                     std::error_code ec;
