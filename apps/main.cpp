@@ -1,6 +1,7 @@
 #include "capture.hpp"
 #include "trajectory.hpp"
 #include "movement.hpp"
+#include "game_controller.hpp"
 #include <opencv2/opencv.hpp>
 #include <chrono>
 #include <vector>
@@ -24,6 +25,7 @@ int main() {
 
     TrajectoryPredictor predictor(config);
     MovementController mover(config);
+    GameController gameController(config);
 
 
     bool running = true;
@@ -181,99 +183,24 @@ int main() {
                 double timeUntilMs = -1.0;
                 if (predictedEntryTimeUs > 0) timeUntilMs = (predictedEntryTimeUs - currentTimeUs) / 1000.0;
 
-                // Draw debug overlay and save image so you can inspect remaining time after sending move
-                try {
-                    cv::Mat debugImg = frame.clone();
-
-                    // Draw puck center
-                    cv::circle(debugImg, puckCenter, 6, cv::Scalar(0, 0, 255), -1);
-
-                    // Short-horizon predicted position and velocity
-                    cv::Point2f predictedShort = predictor.predictPosition(currentTimeUs + 100000); // +100ms
-                    double velocityConfidence = predictor.getVelocityConfidence();
-                    double vx = 0.0, vy = 0.0, speed = 0.0;
-                    if (predictedShort.x >= 0 && predictedShort.y >= 0) {
-                        cv::Point2f predictedShortImg = capture.TableToImageCoordinates(predictedShort, capture.getCroppedWidth(), capture.getCroppedHeight());
-                        cv::arrowedLine(debugImg, puckCenter, predictedShortImg, cv::Scalar(0, 255, 255), 2, cv::LINE_AA, 0, 0.2);
-                        vx = (predictedShort.x - capture.imageToTableCoordinates(puckCenter, capture.getCroppedWidth(), capture.getCroppedHeight()).x) * 10.0;
-                        vy = (predictedShort.y - capture.imageToTableCoordinates(puckCenter, capture.getCroppedWidth(), capture.getCroppedHeight()).y) * 10.0;
-                        speed = std::hypot(vx, vy);
-                    }
-
-                    // Draw predicted path 
-                    uint64_t predictedEntryTimeUs = 0;
-                    const uint64_t maxLookaheadUs = 2000000; // 2 seconds
-                    const uint64_t stepUs = 50000; // 50 ms
-                    std::vector<cv::Point> pathPoints;
-                    for (uint64_t t = currentTimeUs; t <= currentTimeUs + maxLookaheadUs; t += stepUs) {
-                        cv::Point2f p = predictor.predictPosition(t);
-                        if (p.x < 0 || p.y < 0) continue;
-                        cv::Point imgPt = capture.TableToImageCoordinates(p, capture.getCroppedWidth(), capture.getCroppedHeight());
-                        pathPoints.push_back(imgPt);
-                        if (predictor.isInDefenseZone(p) && predictedEntryTimeUs == 0) {
-                            predictedEntryTimeUs = t;
-                        }
-                    }
-                    for (size_t i = 1; i < pathPoints.size(); ++i) {
-                        cv::line(debugImg, pathPoints[i-1], pathPoints[i], cv::Scalar(0, 255, 0), 1);
-                    }
-
-                    // Draw predicted entry point
-                    cv::Point2f predictedImage = capture.TableToImageCoordinates(predictedEntryTable, capture.getCroppedWidth(), capture.getCroppedHeight());
-                    if (predictedImage.x >= 0 && predictedImage.y >= 0) {
-                        cv::circle(debugImg, predictedImage, 8, cv::Scalar(255, 0, 0), 2);
-                    }
-
-                    // Put multiple text lines: index, fps, confidence, speed, time-to-entry, predicted/robot coords
-                    std::ostringstream line1, line2, line3, line4;
-                    line1 << "Idx:" << std::setw(4) << std::setfill('0') << debugImageIndex << "  FPS:" << std::fixed << std::setprecision(1) << fps;
-                    line2 << "Conf:" << std::fixed << std::setprecision(2) << velocityConfidence << "  V(mm/s):" << std::fixed << std::setprecision(1) << speed;
-                    if (predictedEntryTimeUs > 0) {
-                        double timeUntilMs = (predictedEntryTimeUs - currentTimeUs) / 1000.0;
-                        line2 << "  Tentry(ms):" << std::fixed << std::setprecision(0) << timeUntilMs;
-                    } else {
-                        line2 << "  Tentry(ms):unknown";
-                    }
-
-                    line3 << "Pred(mm):" << std::fixed << std::setprecision(0) << predictedEntryTable.x << "," << predictedEntryTable.y;
-                    line3 << "  Robot(mm):" << std::fixed << std::setprecision(0) << robotPos.x << "," << robotPos.y;
-
-                    line4 << "ShortPred(mm):" << std::fixed << std::setprecision(0) << predictedShort.x << "," << predictedShort.y;
-
-                    auto nowSys = std::chrono::system_clock::now();
-                    std::time_t nowTime = std::chrono::system_clock::to_time_t(nowSys);
-                    std::tm localTime = {};
-    #if defined(_WIN32) || defined(_WIN64)
-                    localtime_s(&localTime, &nowTime);
-    #else
-                    localtime_r(&nowTime, &localTime);
-    #endif
-                    auto msPart = std::chrono::duration_cast<std::chrono::milliseconds>(nowSys.time_since_epoch()).count() % 1000;
-                    std::ostringstream timeStamp;
-                    timeStamp << std::put_time(&localTime, "%Y-%m-%d %H:%M:%S") << "." << std::setw(3) << std::setfill('0') << msPart;
-
-                    int imgX = 10;
-                    int y = 30;
-                    int lineH = 28;
-                    cv::putText(debugImg, line1.str(), cv::Point(imgX, y), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2);
-                    cv::putText(debugImg, line2.str(), cv::Point(imgX, y + lineH), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2);
-                    cv::putText(debugImg, line3.str(), cv::Point(imgX, y + lineH*2), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 255, 255), 1);
-                    cv::putText(debugImg, line4.str(), cv::Point(imgX, y + lineH*3), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 255, 255), 1);
-                    cv::putText(debugImg, timeStamp.str(), cv::Point(imgX, y + lineH*4), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 255, 255), 1);
-
-                    std::string outDir = "predicted_entries";
-                    std::error_code ec;
-                    std::filesystem::create_directories(outDir, ec);
-                    if (ec) {
-                        std::cerr << "Warning: could not create directory '" << outDir << "': " << ec.message() << std::endl;
-                    }
-                    int imgIdx = debugImageIndex++;
-                    std::ostringstream fname;
-                    fname << outDir << "/predicted_entry_" << std::setw(4) << std::setfill('0') << imgIdx << ".png";
-                    capture.saveImage(debugImg, fname.str());
-                } catch (const std::exception& e) {
-                    std::cerr << "Failed to save predicted-entry image: " << e.what() << std::endl;
-                }
+                // Render debug image with predictions
+                cv::Point2f predictedShort = predictor.predictPosition(currentTimeUs + 100000); // +100ms
+                double velocityConfidence = predictor.getVelocityConfidence();
+                
+                DebugRenderParams debugParams{
+                    frame,
+                    puckCenter,
+                    predictedShort,
+                    predictedEntryTable,
+                    robotPos,
+                    velocityConfidence,
+                    fps,
+                    currentTimeUs,
+                    debugImageIndex,
+                    capture,
+                    predictor
+                };
+                gameController.renderDebugImage(debugParams);
             } else {
                 std::cout << "Point too close to last position" << std::endl;
             }
