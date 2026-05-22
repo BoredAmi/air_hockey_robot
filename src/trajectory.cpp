@@ -114,17 +114,17 @@ cv::Point2f TrajectoryPredictor::predictEntryToDefenseZone(uint64_t currentTimes
 
     // Reject if moving away from the defense zone
     switch (currentZoneIndex_) {
-        case 0: // Left defense zone
-            if (pos.x > zoneXMax && vx >= 0) return cv::Point2f(-1, -1);
+        case 0: // Left defense zone if negative x return false
+            if ( vx >= 0) return cv::Point2f(-1, -1);
             break;
-        case 1: // Right defense zone
-            if (pos.x < zoneXMin && vx <= 0) return cv::Point2f(-1, -1);
+        case 1: // Right defense zone if positive x return false
+            if (vx <= 0) return cv::Point2f(-1, -1);
             break;
-        case 2: // Top defense zone
-            if (pos.y > zoneYMax && vy >= 0) return cv::Point2f(-1, -1);
+        case 2: // Top defense zone if positive y return false
+            if (vy >= 0) return cv::Point2f(-1, -1);
             break;
-        case 3: // Bottom defense zone
-            if (pos.y < zoneYMin && vy <= 0) return cv::Point2f(-1, -1);
+        case 3: // Bottom defense zone if negative y return false
+            if (vy >= 0) return cv::Point2f(-1, -1);
             break;
         default:
             break;
