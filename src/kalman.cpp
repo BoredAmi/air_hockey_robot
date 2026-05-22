@@ -16,11 +16,29 @@ KalmanFilter::KalmanFilter() {
     H_ << 1, 0, 0, 0,
           0, 1, 0, 0;
 
-    // Process noise 
-    Q_ = Eigen::MatrixXd::Identity(4, 4) * 0.01;
+    // Process noise (higher for velocities to be more reactive)
+    Q_ = Eigen::MatrixXd::Zero(4, 4);
+    Q_(0,0) = 0.01;
+    Q_(1,1) = 0.01;
+    Q_(2,2) = 0.2;
+    Q_(3,3) = 0.2;
 
     // Measurement noise
     R_ = Eigen::MatrixXd::Identity(2, 2) * 0.1;
+}
+
+void KalmanFilter::reset() {
+    state_ = Eigen::VectorXd(4);
+    state_ << 0, 0, 0, 0;
+    P_ = Eigen::MatrixXd::Identity(4, 4) * 1000;
+
+    F_ = Eigen::MatrixXd::Identity(4, 4);
+
+    Q_ = Eigen::MatrixXd::Zero(4, 4);
+    Q_(0,0) = 0.01;
+    Q_(1,1) = 0.01;
+    Q_(2,2) = 0.2;
+    Q_(3,3) = 0.2;
 }
 
 void KalmanFilter::predict() {

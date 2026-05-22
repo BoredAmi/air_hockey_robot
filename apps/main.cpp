@@ -74,21 +74,25 @@ int main() {
             cv::Point2f currentTablePos = capture.imageToTableCoordinates(puckCenter, capture.getCroppedWidth(), capture.getCroppedHeight());
 
             bool acceptSample = true;
+            double computedSpeed = 0.0;
             if (lastPuckValid) {
                 double dt = (currentTimeUs - lastPuckTimeUs) / 1000000.0; // seconds
                 if (dt > 0) {
                     double dx = currentTablePos.x - lastPuckTablePos.x;
                     double dy = currentTablePos.y - lastPuckTablePos.y;
-                    double speed = std::hypot(dx, dy) / dt; // mm/s
-                    if (speed > MAX_PUCK_SPEED_MM_S) {
+                    computedSpeed = std::hypot(dx, dy) / dt; // mm/s
+                    if (computedSpeed > MAX_PUCK_SPEED_MM_S) {
                         acceptSample = false;
-                        // std::cout << "Skipping sample: high speed " << speed << " mm/s" << std::endl;
-                    } else if (speed < MIN_PUCK_SPEED_MM_S) {
-                        // Puck nearly still -> clear predictor and ignore this sample
+                        // std::cout << "Skipping sample: high speed " << computedSpeed << " mm/s" << std::endl;
+                    } else if (computedSpeed < MIN_PUCK_SPEED_MM_S) {
+                        // Puck nearly still -> reset and reinitialize with zero velocity immediately
                         predictor.reset();
-                        lastPuckValid = false;
+                        PuckPosition puckPos = {currentTablePos, currentTimeUs};
+                        predictor.addMeasurement(puckPos);
+                        lastPuckTablePos = currentTablePos;
+                        lastPuckTimeUs = currentTimeUs;
+                        lastPuckValid = true;
                         acceptSample = false;
-                       // std::cout << "Resetting predictor: puck nearly still (" << speed << " mm/s)" << std::endl;
                     }
                 }
             }

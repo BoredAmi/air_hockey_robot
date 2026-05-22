@@ -218,6 +218,7 @@ cv::Point2f TrajectoryPredictor::predictEntryToDefenseZone(uint64_t currentTimes
 void TrajectoryPredictor::reset() {
     initialized_ = false;
     lastTimestamp_ = 0;
+    kalmanFilter_.reset();
 }
 bool TrajectoryPredictor::isInDefenseZone(const cv::Point2f& pos) {
     return (pos.y <= zoneYMax && pos.y >= zoneYMin && pos.x >= zoneXMin && pos.x <= zoneXMax);
