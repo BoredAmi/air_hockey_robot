@@ -55,7 +55,7 @@ bool MovementController::moveTo(cv::Point2f tablePosition) {
         return false;
     }
     float distance = sqrt(pow(lastPosition.x - tablePosition.x, 2) + pow(lastPosition.y - tablePosition.y, 2));
-    if (distance < 2.0) {
+    if (distance < 30.0) {
         std::cout << "Already close to target position, skipping move command. Distance: " << distance << std::endl;
         return false;
     }

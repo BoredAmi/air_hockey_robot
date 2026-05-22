@@ -34,7 +34,7 @@ int main() {
     cv::Point2f lastPuckTablePos(-1, -1);
     uint64_t lastPuckTimeUs = 0;
     bool lastPuckValid = false;
-    const double MAX_PUCK_SPEED_MM_S = 3000.0; // threshold to ignore samples (mm/s)
+    const double MAX_PUCK_SPEED_MM_S = 9999.0; // threshold to ignore samples (mm/s)
     const double MIN_PUCK_SPEED_MM_S = 30.0; // if slower than this, consider it standing still (mm/s)
     int debugImageIndex = 0; // sequential index for saved debug images
 
@@ -163,9 +163,57 @@ int main() {
             cv::Point2f robotPosInTable(predictedEntryTable.x, predictedEntryTable.y);
             cv::Point2f robotPos = mover.TableToRobotCoordinates(robotPosInTable);
 
-            if(mover.moveTo(robotPos)) {
+            // Check if puck has sufficient speed before moving robot
+            cv::Point2f predictedShortForSpeed = predictor.predictPosition(currentTimeUs + 100000);
+            double speedForRobot = 0.0;
+            if (predictedShortForSpeed.x >= 0 && predictedShortForSpeed.y >= 0 && puckDetected) {
+                cv::Point2f currentTablePos = capture.imageToTableCoordinates(puckCenter, capture.getCroppedWidth(), capture.getCroppedHeight());
+                double vxSpeed = (predictedShortForSpeed.x - currentTablePos.x) * 10.0;
+                double vySpeed = (predictedShortForSpeed.y - currentTablePos.y) * 10.0;
+                speedForRobot = std::hypot(vxSpeed, vySpeed);
+            }
+
+            const double MIN_SPEED_FOR_ROBOT_MM_S = 100.0;
+            const double DEFENSE_ZONE_BUFFER_MM = 100.0; // 10cm buffer
+            
+            cv::Point2f currentTablePos = capture.imageToTableCoordinates(puckCenter, capture.getCroppedWidth(), capture.getCroppedHeight());
+            bool puckTooCloseToZone = predictor.isInDefenseZone(currentTablePos);
+            
+            // Check if within 10cm buffer of zone boundary
+            if (!puckTooCloseToZone) {
+                switch (config.WHERE_DEFENSE_ZONE) {
+                case 0: // Left zone
+                    if (currentTablePos.x < config.DEFENSE_ZONE_WIDTH + DEFENSE_ZONE_BUFFER_MM) {
+                        puckTooCloseToZone = true;
+                    }
+                    break;
+                case 1: // Right zone
+                    if (currentTablePos.x > config.PHYSICAL_TABLE_WIDTH - config.DEFENSE_ZONE_WIDTH - DEFENSE_ZONE_BUFFER_MM) {
+                        puckTooCloseToZone = true;
+                    }
+                    break;
+                case 2: // Top zone
+                    if (currentTablePos.y < config.DEFENSE_ZONE_HEIGHT + DEFENSE_ZONE_BUFFER_MM) {
+                        puckTooCloseToZone = true;
+                    }
+                    break;
+                case 3: // Bottom zone
+                    if (currentTablePos.y > config.PHYSICAL_TABLE_HEIGHT - config.DEFENSE_ZONE_HEIGHT - DEFENSE_ZONE_BUFFER_MM) {
+                        puckTooCloseToZone = true;
+                    }
+                    break;
+                }
+            }
+            
+            if (speedForRobot < MIN_SPEED_FOR_ROBOT_MM_S) {
+                std::cout << "Skipping: puck speed too low (" << speedForRobot << " mm/s < " << MIN_SPEED_FOR_ROBOT_MM_S << " mm/s)" << std::endl;
+            } else if (puckTooCloseToZone) {
+                std::cout << "Skipping: puck already in or near defense zone (10cm buffer)" << std::endl;
+            } else if(mover.moveTo(robotPos)) {
                 std::cout << "Camera coordinates entry: X: " << predictedEntryTable.x << " mm , Y: " << predictedEntryTable.y << " mm" << std::endl;
                 std::cout << "Moving robot to: X: " << robotPos.x << " mm, Y: " << robotPos.y << " mm" << std::endl;
+
+
 
                 // Estimate predicted entry time by probing predictor over a short horizon
                 uint64_t predictedEntryTimeUs = 0;
@@ -201,6 +249,9 @@ int main() {
                     predictor
                 };
                 gameController.renderDebugImage(debugParams);
+                // Reset predictor after hit to avoid stale velocity estimates
+                predictor.reset();
+                lastPuckValid = false;
             } else {
                 std::cout << "Point too close to last position" << std::endl;
             }

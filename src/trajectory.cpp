@@ -107,6 +107,13 @@ cv::Point2f TrajectoryPredictor::predictEntryToDefenseZone(uint64_t currentTimes
     cv::Point2f pos(state(0), state(1));
     double vx = state(2), vy = state(3);
 
+    // Reject if puck has negligible velocity (standing still or nearly still)
+    double velocityMagnitude = std::hypot(vx, vy);
+    const double MIN_VELOCITY_THRESHOLD = 5.0;  // mm/s
+    if (velocityMagnitude < MIN_VELOCITY_THRESHOLD) {
+        return cv::Point2f(-1, -1);
+    }
+
     // If already in zone, return current position
     if (pos.y <= zoneYMax && pos.y >= zoneYMin && pos.x >= zoneXMin && pos.x <= zoneXMax) {
         return pos;
@@ -149,6 +156,20 @@ cv::Point2f TrajectoryPredictor::predictEntryToDefenseZone(uint64_t currentTimes
         return true;
     };
 
+    // Fast path: check if direct trajectory crosses zone without bounces
+    double tZoneStart, tZoneEnd;
+    bool xInZone = computeInterval(pos.x, vx, zoneXMin, zoneXMax, tZoneStart, tZoneEnd);
+    double yZoneStart, yZoneEnd;
+    bool yInZone = computeInterval(pos.y, vy, zoneYMin, zoneYMax, yZoneStart, yZoneEnd);
+
+    if (xInZone && yInZone) {
+        double entryStart = std::max(tZoneStart, yZoneStart);
+        double entryEnd = std::min(tZoneEnd, yZoneEnd);
+        if (entryStart <= entryEnd && entryStart >= 0.0) {
+            return cv::Point2f(pos.x + vx * entryStart, pos.y + vy * entryStart);
+        }
+    }
+
     const double maxTime = 2.0; // 2s
     const int maxBounces = 5;
     double timeAccum = 0.0;
@@ -172,10 +193,8 @@ cv::Point2f TrajectoryPredictor::predictEntryToDefenseZone(uint64_t currentTimes
         else if (minTime == ty_bottom) wall = 2;
         else if (minTime == ty_top) wall = 3;
 
-        double tZoneStart, tZoneEnd;
-        bool xInZone = computeInterval(pos.x, vx, zoneXMin, zoneXMax, tZoneStart, tZoneEnd);
-        double yZoneStart, yZoneEnd;
-        bool yInZone = computeInterval(pos.y, vy, zoneYMin, zoneYMax, yZoneStart, yZoneEnd);
+        xInZone = computeInterval(pos.x, vx, zoneXMin, zoneXMax, tZoneStart, tZoneEnd);
+        yInZone = computeInterval(pos.y, vy, zoneYMin, zoneYMax, yZoneStart, yZoneEnd);
 
         if (xInZone && yInZone) {
             double entryStart = std::max(tZoneStart, yZoneStart);
