@@ -41,7 +41,7 @@ public:
     int PUCK_MAX_AREA = 10000; // Maximum area for blob detection
 
     // Robot configuration
-    std::string ROBOT_IP = "192.168.125.1";  
+    std::string ROBOT_IP = "10.25.74.172";  
     double TABLE_OFFSET_X = 0.0;             // Offset from table origin to robot origin in mm
     double TABLE_OFFSET_Y = 0.0;
     double TABLE_HEIGHT_Z = 0.0;             // Table height in mm
@@ -163,7 +163,7 @@ private:
         c.TABLE_DETECT_THRESHOLD = j.value("TABLE_DETECT_THRESHOLD", 150);
         c.PUCK_MIN_AREA = j.value("PUCK_MIN_AREA", 150);
         c.PUCK_MAX_AREA = j.value("PUCK_MAX_AREA", 10000);
-        c.ROBOT_IP = j.value("ROBOT_IP", "192.168.125.1");
+        c.ROBOT_IP = j.value("ROBOT_IP", "10.25.74.172");
         c.TABLE_OFFSET_X = j.value("TABLE_OFFSET_X", 0.0);
         c.TABLE_OFFSET_Y = j.value("TABLE_OFFSET_Y", 0.0);
         c.TABLE_HEIGHT_Z = j.value("TABLE_HEIGHT_Z", 0.0);

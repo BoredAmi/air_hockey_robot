@@ -66,11 +66,12 @@ bool MovementController::moveTo(cv::Point2f tablePosition) {
     
     float x = tablePosition.x; 
     float y = tablePosition.y;
+    //change position y to an angle between 55 and 130 degrees, where 55 corresponds to y=0 and 130 corresponds to y=PHYSICAL_TABLE_HEIGHT
+    float sent_angle=(y/config_.PHYSICAL_TABLE_HEIGHT)*75+55;
 
     struct {
-        int code;
-        float pos[2];
-    } movePacket = {2, {x, y}};
+        float angle;
+    } movePacket = {sent_angle};
     sendRawData(&movePacket, sizeof(movePacket));
     return true;
 }

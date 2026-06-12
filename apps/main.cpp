@@ -39,7 +39,7 @@ int main() {
     int debugImageIndex = 0; // sequential index for all debug images
     uint64_t lastMoveTimeUs = 0; // timestamp of last move command
     const uint64_t DEBUG_RECORD_DURATION_US = 1000000; // 1 second in microseconds
-    const uint64_t SAMPLE_INTERVAL_US = 50000; // 50ms sampling interval
+    const uint64_t SAMPLE_INTERVAL_US = 20000; // 20ms sampling interval
     uint64_t lastSavedFrameTimeUs = 0; // timestamp of last saved debug frame
 
     // FPS counter variables
