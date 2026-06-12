@@ -1,6 +1,7 @@
 #include "capture.hpp"
 #include "trajectory.hpp"
 #include "movement.hpp"
+#include "game_controller.hpp"
 #include <opencv2/opencv.hpp>
 #include <chrono>
 #include <vector>
@@ -9,6 +10,7 @@
 #include <sstream>
 #include <iomanip>
 #include <filesystem>
+#include <ctime>
 
 int main() {
     Config config;
@@ -23,6 +25,7 @@ int main() {
 
     TrajectoryPredictor predictor(config);
     MovementController mover(config);
+    GameController gameController(config);
 
 
     bool running = true;
@@ -31,9 +34,13 @@ int main() {
     cv::Point2f lastPuckTablePos(-1, -1);
     uint64_t lastPuckTimeUs = 0;
     bool lastPuckValid = false;
-    const double MAX_PUCK_SPEED_MM_S = 3000.0; // threshold to ignore samples (mm/s)
+    const double MAX_PUCK_SPEED_MM_S = 9999.0; // threshold to ignore samples (mm/s)
     const double MIN_PUCK_SPEED_MM_S = 30.0; // if slower than this, consider it standing still (mm/s)
-    int debugImageIndex = 0; // sequential index for saved debug images
+    int debugImageIndex = 0; // sequential index for all debug images
+    uint64_t lastMoveTimeUs = 0; // timestamp of last move command
+    const uint64_t DEBUG_RECORD_DURATION_US = 1000000; // 1 second in microseconds
+    const uint64_t SAMPLE_INTERVAL_US = 50000; // 50ms sampling interval
+    uint64_t lastSavedFrameTimeUs = 0; // timestamp of last saved debug frame
 
     // FPS counter variables
     int frameCount = 0;
@@ -66,6 +73,8 @@ int main() {
         double currentTime = cv::getTickCount() / cv::getTickFrequency();
         uint64_t currentTimeUs = (uint64_t)(currentTime * 1000000.0);
 
+        bool moveCommandSent = false; // Track if robot move was sent this frame
+
         cv::Point2f predictedEntryTable;
         predictedEntryTable.x = -1.0f;  // Initialize to invalid position
         predictedEntryTable.y = -1.0f;
@@ -73,21 +82,25 @@ int main() {
             cv::Point2f currentTablePos = capture.imageToTableCoordinates(puckCenter, capture.getCroppedWidth(), capture.getCroppedHeight());
 
             bool acceptSample = true;
+            double computedSpeed = 0.0;
             if (lastPuckValid) {
                 double dt = (currentTimeUs - lastPuckTimeUs) / 1000000.0; // seconds
                 if (dt > 0) {
                     double dx = currentTablePos.x - lastPuckTablePos.x;
                     double dy = currentTablePos.y - lastPuckTablePos.y;
-                    double speed = std::hypot(dx, dy) / dt; // mm/s
-                    if (speed > MAX_PUCK_SPEED_MM_S) {
+                    computedSpeed = std::hypot(dx, dy) / dt; // mm/s
+                    if (computedSpeed > MAX_PUCK_SPEED_MM_S) {
                         acceptSample = false;
-                        std::cout << "Skipping sample: high speed " << speed << " mm/s" << std::endl;
-                    } else if (speed < MIN_PUCK_SPEED_MM_S) {
-                        // Puck nearly still -> clear predictor and ignore this sample
+                        // std::cout << "Skipping sample: high speed " << computedSpeed << " mm/s" << std::endl;
+                    } else if (computedSpeed < MIN_PUCK_SPEED_MM_S) {
+                        // Puck nearly still -> reset and reinitialize with zero velocity immediately
                         predictor.reset();
-                        lastPuckValid = false;
+                        PuckPosition puckPos = {currentTablePos, currentTimeUs};
+                        predictor.addMeasurement(puckPos);
+                        lastPuckTablePos = currentTablePos;
+                        lastPuckTimeUs = currentTimeUs;
+                        lastPuckValid = true;
                         acceptSample = false;
-                        std::cout << "Resetting predictor: puck nearly still (" << speed << " mm/s)" << std::endl;
                     }
                 }
             }
@@ -149,16 +162,95 @@ int main() {
             }
 
             if (!movingTowardZone) {
-                std::cout << "Skipping: puck moving away from defense zone (already hit to opponent side)" << std::endl;
+                //std::cout << "Skipping: puck moving away from defense zone (already hit to opponent side)" << std::endl;
             } else {
 
             // Move robot
             cv::Point2f robotPosInTable(predictedEntryTable.x, predictedEntryTable.y);
             cv::Point2f robotPos = mover.TableToRobotCoordinates(robotPosInTable);
 
-            if(mover.moveTo(robotPos)) {
+            // Check if puck has sufficient speed before moving robot
+            cv::Point2f predictedShortForSpeed = predictor.predictPosition(currentTimeUs + 100000);
+            double speedForRobot = 0.0;
+            if (predictedShortForSpeed.x >= 0 && predictedShortForSpeed.y >= 0 && puckDetected) {
+                cv::Point2f currentTablePos = capture.imageToTableCoordinates(puckCenter, capture.getCroppedWidth(), capture.getCroppedHeight());
+                double vxSpeed = (predictedShortForSpeed.x - currentTablePos.x) * 10.0;
+                double vySpeed = (predictedShortForSpeed.y - currentTablePos.y) * 10.0;
+                speedForRobot = std::hypot(vxSpeed, vySpeed);
+            }
+
+            const double MIN_SPEED_FOR_ROBOT_MM_S = 100.0;
+            const double DEFENSE_ZONE_BUFFER_MM = 100.0; // 10cm buffer
+            
+            cv::Point2f currentTablePos = capture.imageToTableCoordinates(puckCenter, capture.getCroppedWidth(), capture.getCroppedHeight());
+            bool puckTooCloseToZone = predictor.isInDefenseZone(currentTablePos);
+            
+            // Check if within 10cm buffer of zone boundary
+            if (!puckTooCloseToZone) {
+                switch (config.WHERE_DEFENSE_ZONE) {
+                case 0: // Left zone
+                    if (currentTablePos.x < config.DEFENSE_ZONE_WIDTH + DEFENSE_ZONE_BUFFER_MM) {
+                        puckTooCloseToZone = true;
+                    }
+                    break;
+                case 1: // Right zone
+                    if (currentTablePos.x > config.PHYSICAL_TABLE_WIDTH - config.DEFENSE_ZONE_WIDTH - DEFENSE_ZONE_BUFFER_MM) {
+                        puckTooCloseToZone = true;
+                    }
+                    break;
+                case 2: // Top zone
+                    if (currentTablePos.y < config.DEFENSE_ZONE_HEIGHT + DEFENSE_ZONE_BUFFER_MM) {
+                        puckTooCloseToZone = true;
+                    }
+                    break;
+                case 3: // Bottom zone
+                    if (currentTablePos.y > config.PHYSICAL_TABLE_HEIGHT - config.DEFENSE_ZONE_HEIGHT - DEFENSE_ZONE_BUFFER_MM) {
+                        puckTooCloseToZone = true;
+                    }
+                    break;
+                }
+            }
+            
+            if (speedForRobot < MIN_SPEED_FOR_ROBOT_MM_S) {
+                //std::cout << "Skipping: puck speed too low (" << speedForRobot << " mm/s < " << MIN_SPEED_FOR_ROBOT_MM_S << " mm/s)" << std::endl;
+            } else if (puckTooCloseToZone) {
+                //std::cout << "Skipping: puck already in or near defense zone (10cm buffer)" << std::endl;
+            } else if(mover.moveTo(robotPos)) {
+                moveCommandSent = true;
+                lastMoveTimeUs = currentTimeUs;
+                // Save frame immediately when move command is sent
+                std::filesystem::create_directories("debug_all_frames");
+                cv::Mat moveFrame = frame.clone();
+                
+                // Draw "MOVE SENT" overlay
+                cv::putText(moveFrame, "MOVE SENT", cv::Point(20, 60), cv::FONT_HERSHEY_SIMPLEX, 2.0, cv::Scalar(0, 255, 0), 3);
+                
+                // Add detailed timestamp with milliseconds
+                auto now = std::chrono::system_clock::now();
+                auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+                time_t timeT = std::chrono::system_clock::to_time_t(now);
+                struct tm timeinfo;
+                #if defined(_WIN32) || defined(_WIN64)
+                    localtime_s(&timeinfo, &timeT);
+                #else
+                    localtime_r(&timeT, &timeinfo);
+                #endif
+                
+                char timeStr[64];
+                strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", &timeinfo);
+                std::string fullTimeStr = std::string(timeStr) + "." + std::to_string(ms.count()).substr(0, 3);
+                cv::putText(moveFrame, fullTimeStr, cv::Point(20, 120), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2);
+                
+                // Save with sequential index
+                char filename[256];
+                snprintf(filename, sizeof(filename), "debug_all_frames/%04d_MOVE.jpg", debugImageIndex);
+                cv::imwrite(filename, moveFrame);
+                debugImageIndex++;
+
                 std::cout << "Camera coordinates entry: X: " << predictedEntryTable.x << " mm , Y: " << predictedEntryTable.y << " mm" << std::endl;
                 std::cout << "Moving robot to: X: " << robotPos.x << " mm, Y: " << robotPos.y << " mm" << std::endl;
+
+
 
                 // Estimate predicted entry time by probing predictor over a short horizon
                 uint64_t predictedEntryTimeUs = 0;
@@ -176,89 +268,76 @@ int main() {
                 double timeUntilMs = -1.0;
                 if (predictedEntryTimeUs > 0) timeUntilMs = (predictedEntryTimeUs - currentTimeUs) / 1000.0;
 
-                // Draw debug overlay and save image so you can inspect remaining time after sending move
-                try {
-                    cv::Mat debugImg = frame.clone();
-
-                    // Draw puck center
-                    cv::circle(debugImg, puckCenter, 6, cv::Scalar(0, 0, 255), -1);
-
-                    // Short-horizon predicted position and velocity
-                    cv::Point2f predictedShort = predictor.predictPosition(currentTimeUs + 100000); // +100ms
-                    double velocityConfidence = predictor.getVelocityConfidence();
-                    double vx = 0.0, vy = 0.0, speed = 0.0;
-                    if (predictedShort.x >= 0 && predictedShort.y >= 0) {
-                        cv::Point2f predictedShortImg = capture.TableToImageCoordinates(predictedShort, capture.getCroppedWidth(), capture.getCroppedHeight());
-                        cv::arrowedLine(debugImg, puckCenter, predictedShortImg, cv::Scalar(0, 255, 255), 2, cv::LINE_AA, 0, 0.2);
-                        vx = (predictedShort.x - capture.imageToTableCoordinates(puckCenter, capture.getCroppedWidth(), capture.getCroppedHeight()).x) * 10.0;
-                        vy = (predictedShort.y - capture.imageToTableCoordinates(puckCenter, capture.getCroppedWidth(), capture.getCroppedHeight()).y) * 10.0;
-                        speed = std::hypot(vx, vy);
-                    }
-
-                    // Draw predicted path 
-                    uint64_t predictedEntryTimeUs = 0;
-                    const uint64_t maxLookaheadUs = 2000000; // 2 seconds
-                    const uint64_t stepUs = 50000; // 50 ms
-                    std::vector<cv::Point> pathPoints;
-                    for (uint64_t t = currentTimeUs; t <= currentTimeUs + maxLookaheadUs; t += stepUs) {
-                        cv::Point2f p = predictor.predictPosition(t);
-                        if (p.x < 0 || p.y < 0) continue;
-                        cv::Point imgPt = capture.TableToImageCoordinates(p, capture.getCroppedWidth(), capture.getCroppedHeight());
-                        pathPoints.push_back(imgPt);
-                        if (predictor.isInDefenseZone(p) && predictedEntryTimeUs == 0) {
-                            predictedEntryTimeUs = t;
-                        }
-                    }
-                    for (size_t i = 1; i < pathPoints.size(); ++i) {
-                        cv::line(debugImg, pathPoints[i-1], pathPoints[i], cv::Scalar(0, 255, 0), 1);
-                    }
-
-                    // Draw predicted entry point
-                    cv::Point2f predictedImage = capture.TableToImageCoordinates(predictedEntryTable, capture.getCroppedWidth(), capture.getCroppedHeight());
-                    if (predictedImage.x >= 0 && predictedImage.y >= 0) {
-                        cv::circle(debugImg, predictedImage, 8, cv::Scalar(255, 0, 0), 2);
-                    }
-
-                    // Put multiple text lines: index, fps, confidence, speed, time-to-entry, predicted/robot coords
-                    std::ostringstream line1, line2, line3, line4;
-                    line1 << "Idx:" << std::setw(4) << std::setfill('0') << debugImageIndex << "  FPS:" << std::fixed << std::setprecision(1) << fps;
-                    line2 << "Conf:" << std::fixed << std::setprecision(2) << velocityConfidence << "  V(mm/s):" << std::fixed << std::setprecision(1) << speed;
-                    if (predictedEntryTimeUs > 0) {
-                        double timeUntilMs = (predictedEntryTimeUs - currentTimeUs) / 1000.0;
-                        line2 << "  Tentry(ms):" << std::fixed << std::setprecision(0) << timeUntilMs;
-                    } else {
-                        line2 << "  Tentry(ms):unknown";
-                    }
-
-                    line3 << "Pred(mm):" << std::fixed << std::setprecision(0) << predictedEntryTable.x << "," << predictedEntryTable.y;
-                    line3 << "  Robot(mm):" << std::fixed << std::setprecision(0) << robotPos.x << "," << robotPos.y;
-
-                    line4 << "ShortPred(mm):" << std::fixed << std::setprecision(0) << predictedShort.x << "," << predictedShort.y;
-
-                    int imgX = 10;
-                    int y = 30;
-                    int lineH = 28;
-                    cv::putText(debugImg, line1.str(), cv::Point(imgX, y), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2);
-                    cv::putText(debugImg, line2.str(), cv::Point(imgX, y + lineH), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2);
-                    cv::putText(debugImg, line3.str(), cv::Point(imgX, y + lineH*2), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 255, 255), 1);
-                    cv::putText(debugImg, line4.str(), cv::Point(imgX, y + lineH*3), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 255, 255), 1);
-
-                    std::string outDir = "predicted_entries";
-                    std::error_code ec;
-                    std::filesystem::create_directories(outDir, ec);
-                    if (ec) {
-                        std::cerr << "Warning: could not create directory '" << outDir << "': " << ec.message() << std::endl;
-                    }
-                    int imgIdx = debugImageIndex++;
-                    std::ostringstream fname;
-                    fname << outDir << "/predicted_entry_" << std::setw(4) << std::setfill('0') << imgIdx << ".png";
-                    capture.saveImage(debugImg, fname.str());
-                } catch (const std::exception& e) {
-                    std::cerr << "Failed to save predicted-entry image: " << e.what() << std::endl;
-                }
+                // Render debug image with predictions
+                cv::Point2f predictedShort = predictor.predictPosition(currentTimeUs + 100000); // +100ms
+                double velocityConfidence = predictor.getVelocityConfidence();
+                
+                DebugRenderParams debugParams{
+                    frame,
+                    puckCenter,
+                    predictedShort,
+                    predictedEntryTable,
+                    robotPos,
+                    velocityConfidence,
+                    fps,
+                    currentTimeUs,
+                    debugImageIndex,
+                    capture,
+                    predictor
+                };
+                gameController.renderDebugImage(debugParams);
+                // Reset predictor after hit to avoid stale velocity estimates
+                predictor.reset();
+                lastPuckValid = false;
             } else {
                 std::cout << "Point too close to last position" << std::endl;
             }
+            }
+        }
+
+        // Debug: save frame for 1 second after move command (every 50ms)
+        if (lastMoveTimeUs > 0 && (currentTimeUs - lastMoveTimeUs) < DEBUG_RECORD_DURATION_US) {
+            if ((currentTimeUs - lastSavedFrameTimeUs) >= SAMPLE_INTERVAL_US) {
+                lastSavedFrameTimeUs = currentTimeUs;
+                
+                // Create debug folder if needed
+                std::filesystem::create_directories("debug_all_frames");
+                
+                // Draw status overlay on frame copy
+                cv::Mat debugFrame = frame.clone();
+                std::string statusText = "RECORDING";
+                cv::Scalar statusColor = cv::Scalar(0, 255, 255); // Cyan for recording
+                
+                // Draw large status text
+                cv::putText(debugFrame, statusText, cv::Point(20, 60), cv::FONT_HERSHEY_SIMPLEX, 2.0, statusColor, 3);
+                
+                // Add detailed timestamp with milliseconds
+                auto now = std::chrono::system_clock::now();
+                auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+                time_t timeT = std::chrono::system_clock::to_time_t(now);
+                struct tm timeinfo;
+                #if defined(_WIN32) || defined(_WIN64)
+                    localtime_s(&timeinfo, &timeT);
+                #else
+                    localtime_r(&timeT, &timeinfo);
+                #endif
+                
+                char timeStr[64];
+                strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", &timeinfo);
+                std::string fullTimeStr = std::string(timeStr) + "." + std::to_string(ms.count()).substr(0, 3);
+                cv::putText(debugFrame, fullTimeStr, cv::Point(20, 120), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2);
+                
+                // Add time elapsed since move command
+                double timeSinceMoveMs = (currentTimeUs - lastMoveTimeUs) / 1000.0;
+                char elapsedStr[64];
+                snprintf(elapsedStr, sizeof(elapsedStr), "Time since move: %.1f ms", timeSinceMoveMs);
+                cv::putText(debugFrame, elapsedStr, cv::Point(20, 160), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 0), 2);
+                
+                // Save with sequential index
+                char filename[256];
+                snprintf(filename, sizeof(filename), "debug_all_frames/%04d_RECORDING.jpg", debugImageIndex);
+                cv::imwrite(filename, debugFrame);
+                debugImageIndex++;
             }
         }
     }

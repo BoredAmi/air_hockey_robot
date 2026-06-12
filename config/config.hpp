@@ -106,7 +106,7 @@ public:
         PUCK_MAX_AREA = 10000;
 
         // Robot configuration
-        ROBOT_IP = "192.168.125.1";
+        ROBOT_IP = "10.25.74.172";
         TABLE_OFFSET_X = 0.0;
         TABLE_OFFSET_Y = 0.0;
         TABLE_HEIGHT_Z = 0.0;

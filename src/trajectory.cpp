@@ -1,4 +1,6 @@
 #include "trajectory.hpp"
+#include <algorithm>
+#include <limits>
 
 TrajectoryPredictor::TrajectoryPredictor(const Config& config) : config_(config), currentZoneIndex_(config.WHERE_DEFENSE_ZONE), kalmanFilter_(), lastTimestamp_(0), initialized_(false) {
         // Defense zone bounds
@@ -104,73 +106,138 @@ cv::Point2f TrajectoryPredictor::predictEntryToDefenseZone(uint64_t currentTimes
     Eigen::VectorXd state = kalmanFilter_.getState();  // [x, y, vx, vy]
     cv::Point2f pos(state(0), state(1));
     double vx = state(2), vy = state(3);
-    double timeAccum = 0.0;
-    const int maxBounces = 5;
-    const double maxTime = 2.0; // 1 second
-    const double dt = 0.01; // Small time step for simulation (10ms)
-    bool didnthitboundary = true;
 
+    // Reject if puck has negligible velocity (standing still or nearly still)
+    double velocityMagnitude = std::hypot(vx, vy);
+    const double MIN_VELOCITY_THRESHOLD = 5.0;  // mm/s
+    if (velocityMagnitude < MIN_VELOCITY_THRESHOLD) {
+        return cv::Point2f(-1, -1);
+    }
 
     // If already in zone, return current position
     if (pos.y <= zoneYMax && pos.y >= zoneYMin && pos.x >= zoneXMin && pos.x <= zoneXMax) {
         return pos;
     }
 
-    for (int bounce = 0; bounce < maxBounces && timeAccum < maxTime; ++bounce) {
-        // Simulate in small steps until zone entry or boundary hit
-        while (timeAccum < maxTime) {
-            // Check if in zone after this step
-            cv::Point2f nextPos = pos;
-            nextPos.x += vx * dt;
-            nextPos.y += vy * dt;
+    // Reject if moving away from the defense zone
+    switch (currentZoneIndex_) {
+        case 0: // Left defense zone if negative x return false
+            if ( vx >= 0) return cv::Point2f(-1, -1);
+            break;
+        case 1: // Right defense zone if positive x return false
+            if (vx <= 0) return cv::Point2f(-1, -1);
+            break;
+        case 2: // Top defense zone if positive y return false
+            if (vy >= 0) return cv::Point2f(-1, -1);
+            break;
+        case 3: // Bottom defense zone if negative y return false
+            if (vy >= 0) return cv::Point2f(-1, -1);
+            break;
+        default:
+            break;
+    }
 
-            if (nextPos.y <= zoneYMax && nextPos.y >= zoneYMin && nextPos.x >= zoneXMin && nextPos.x <= zoneXMax) {
-                // Entered zone - interpolate exact entry point
-                // (Simple linear interp; could be more precise)
-                double entryX = pos.x + vx * (dt / 2.0); // Approximate
-                double entryY = pos.y + vy * (dt / 2.0);
-                return cv::Point2f(entryX, entryY);
+    auto computeInterval = [&](double p, double v, double minVal, double maxVal, double& start, double& end) {
+        if (minVal > maxVal) std::swap(minVal, maxVal);
+        if (v == 0.0) {
+            if (p >= minVal && p <= maxVal) {
+                start = 0.0;
+                end = std::numeric_limits<double>::infinity();
+                return true;
             }
-            // Check for boundary hits and reflect
-            switch (currentZoneIndex_) //prevent bouncing at the oposite side to the defense zone
-            {
-            case 0: // Left defense zone reflect velocity at boundary except for right wall
-                    if (nextPos.x <= 0 ) vx = -vx;
-                    if (nextPos.y <= 0 || nextPos.y >= config_.PHYSICAL_TABLE_HEIGHT) vy = -vy;
-                break;
-            case 1: // Right defense zone
-                    if (nextPos.x >= config_.PHYSICAL_TABLE_WIDTH) vx = -vx;
-                    if (nextPos.y <= 0 || nextPos.y >= config_.PHYSICAL_TABLE_HEIGHT) vy = -vy;
-                break;
-            case 2: // Bottom defense zone
-                    if (nextPos.y >= config_.PHYSICAL_TABLE_HEIGHT) vy = -vy;
-                    if (nextPos.x <= 0 || nextPos.x >= config_.PHYSICAL_TABLE_WIDTH) vx = -vx;
-                break;
-            case 3: // Top defense zone
-                    if (nextPos.y <= 0) vy = -vy;
-                    if (nextPos.x <= 0 || nextPos.x >= config_.PHYSICAL_TABLE_WIDTH) vx = -vx;    
-                break;  
-            default:
-                    didnthitboundary = true;
-                break;
-            }
+            return false;
+        }
+        double t1 = (minVal - p) / v;
+        double t2 = (maxVal - p) / v;
+        start = std::min(t1, t2);
+        end = std::max(t1, t2);
+        if (end < 0.0) return false;
+        if (start < 0.0) start = 0.0;
+        return true;
+    };
 
-            pos = nextPos;
-            timeAccum += dt;
+    // Fast path: check if direct trajectory crosses zone without bounces
+    double tZoneStart, tZoneEnd;
+    bool xInZone = computeInterval(pos.x, vx, zoneXMin, zoneXMax, tZoneStart, tZoneEnd);
+    double yZoneStart, yZoneEnd;
+    bool yInZone = computeInterval(pos.y, vy, zoneYMin, zoneYMax, yZoneStart, yZoneEnd);
 
-            // If bounced, break inner loop to count bounce
-            if (!didnthitboundary) {
-                didnthitboundary = true;
-                break;
-            }
+    if (xInZone && yInZone) {
+        double entryStart = std::max(tZoneStart, yZoneStart);
+        double entryEnd = std::min(tZoneEnd, yZoneEnd);
+        if (entryStart <= entryEnd && entryStart >= 0.0) {
+            return cv::Point2f(pos.x + vx * entryStart, pos.y + vy * entryStart);
         }
     }
 
-    return cv::Point2f(-1, -1);  // No entry within limits
+    const double maxTime = 2.0; // 2s
+    const int maxBounces = 5;
+    double timeAccum = 0.0;
+
+    for (int bounce = 0; bounce < maxBounces && timeAccum < maxTime; ++bounce) {
+        double tx_left = std::numeric_limits<double>::infinity();
+        double tx_right = std::numeric_limits<double>::infinity();
+        double ty_bottom = std::numeric_limits<double>::infinity();
+        double ty_top = std::numeric_limits<double>::infinity();
+
+        if (vx < 0.0) tx_left = -pos.x / vx;
+        else if (vx > 0.0) tx_right = (config_.PHYSICAL_TABLE_WIDTH - pos.x) / vx;
+
+        if (vy < 0.0) ty_bottom = -pos.y / vy;
+        else if (vy > 0.0) ty_top = (config_.PHYSICAL_TABLE_HEIGHT - pos.y) / vy;
+
+        double minTime = std::min({tx_left, tx_right, ty_bottom, ty_top});
+        int wall = -1;
+        if (minTime == tx_left) wall = 0;
+        else if (minTime == tx_right) wall = 1;
+        else if (minTime == ty_bottom) wall = 2;
+        else if (minTime == ty_top) wall = 3;
+
+        xInZone = computeInterval(pos.x, vx, zoneXMin, zoneXMax, tZoneStart, tZoneEnd);
+        yInZone = computeInterval(pos.y, vy, zoneYMin, zoneYMax, yZoneStart, yZoneEnd);
+
+        if (xInZone && yInZone) {
+            double entryStart = std::max(tZoneStart, yZoneStart);
+            double entryEnd = std::min(tZoneEnd, yZoneEnd);
+            if (entryStart <= entryEnd && entryStart >= 0.0 && entryStart <= minTime && timeAccum + entryStart <= maxTime) {
+                return cv::Point2f(pos.x + vx * entryStart, pos.y + vy * entryStart);
+            }
+        }
+
+        if (minTime == std::numeric_limits<double>::infinity()) break;
+        if (timeAccum + minTime > maxTime) break;
+
+        // stop if we hit the opposite wall for the defense zone
+        bool stop = false;
+        switch (currentZoneIndex_) {
+            case 0: if (wall == 1) stop = true; break; 
+            case 1: if (wall == 0) stop = true; break;
+            case 2: if (wall == 2) stop = true; break; 
+            case 3: if (wall == 3) stop = true; break; 
+            default: break;
+        }
+        if (stop) break;
+
+        // Advance to the bounce point and reflect
+        pos.x += vx * minTime;
+        pos.y += vy * minTime;
+        timeAccum += minTime;
+
+        switch (wall) {
+            case 0: vx = -vx; break;
+            case 1: vx = -vx; break;
+            case 2: vy = -vy; break;
+            case 3: vy = -vy; break;
+            default: break;
+        }
+    }
+
+    return cv::Point2f(-1, -1);
 }
 void TrajectoryPredictor::reset() {
     initialized_ = false;
     lastTimestamp_ = 0;
+    kalmanFilter_.reset();
 }
 bool TrajectoryPredictor::isInDefenseZone(const cv::Point2f& pos) {
     return (pos.y <= zoneYMax && pos.y >= zoneYMin && pos.x >= zoneXMin && pos.x <= zoneXMax);

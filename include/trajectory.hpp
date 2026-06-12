@@ -16,7 +16,7 @@ public:
     void addMeasurement(const PuckPosition& measurement);
     cv::Point2f predictPosition(uint64_t futureTimestamp);
     cv::Point2f predictEntryToDefenseZone(uint64_t currentTimestamp);
-    void reset();  // Reset for lost puck
+    void reset();  
     bool isInDefenseZone(const cv::Point2f& pos);
     void setDefenseZone(int zoneIndex); 
     double getDefenseZoneXMin() const { return zoneXMin; }

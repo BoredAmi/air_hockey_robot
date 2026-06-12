@@ -35,7 +35,7 @@ include_directories(
 )
 
 
-add_executable(air_hockey_robot apps/main.cpp src/capture.cpp src/kalman.cpp src/trajectory.cpp src/movement.cpp)
+add_executable(air_hockey_robot apps/main.cpp src/capture.cpp src/kalman.cpp src/trajectory.cpp src/movement.cpp src/game_controller.cpp)
 if(WIN32)
     target_link_libraries(air_hockey_robot ${OpenCV_LIBS} Eigen3::Eigen ws2_32)
 else()

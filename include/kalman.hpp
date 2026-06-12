@@ -11,6 +11,7 @@ public:
     Eigen::VectorXd getState() const;
     void setState(const Eigen::VectorXd& state);
     void setF(const Eigen::MatrixXd& F);
+    void reset();
     Eigen::MatrixXd getCovariance() const; 
 
 private:
