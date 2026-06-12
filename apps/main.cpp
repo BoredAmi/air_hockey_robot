@@ -36,7 +36,11 @@ int main() {
     bool lastPuckValid = false;
     const double MAX_PUCK_SPEED_MM_S = 9999.0; // threshold to ignore samples (mm/s)
     const double MIN_PUCK_SPEED_MM_S = 30.0; // if slower than this, consider it standing still (mm/s)
-    int debugImageIndex = 0; // sequential index for saved debug images
+    int debugImageIndex = 0; // sequential index for all debug images
+    uint64_t lastMoveTimeUs = 0; // timestamp of last move command
+    const uint64_t DEBUG_RECORD_DURATION_US = 1000000; // 1 second in microseconds
+    const uint64_t SAMPLE_INTERVAL_US = 50000; // 50ms sampling interval
+    uint64_t lastSavedFrameTimeUs = 0; // timestamp of last saved debug frame
 
     // FPS counter variables
     int frameCount = 0;
@@ -68,6 +72,8 @@ int main() {
 
         double currentTime = cv::getTickCount() / cv::getTickFrequency();
         uint64_t currentTimeUs = (uint64_t)(currentTime * 1000000.0);
+
+        bool moveCommandSent = false; // Track if robot move was sent this frame
 
         cv::Point2f predictedEntryTable;
         predictedEntryTable.x = -1.0f;  // Initialize to invalid position
@@ -156,7 +162,7 @@ int main() {
             }
 
             if (!movingTowardZone) {
-                std::cout << "Skipping: puck moving away from defense zone (already hit to opponent side)" << std::endl;
+                //std::cout << "Skipping: puck moving away from defense zone (already hit to opponent side)" << std::endl;
             } else {
 
             // Move robot
@@ -206,10 +212,41 @@ int main() {
             }
             
             if (speedForRobot < MIN_SPEED_FOR_ROBOT_MM_S) {
-                std::cout << "Skipping: puck speed too low (" << speedForRobot << " mm/s < " << MIN_SPEED_FOR_ROBOT_MM_S << " mm/s)" << std::endl;
+                //std::cout << "Skipping: puck speed too low (" << speedForRobot << " mm/s < " << MIN_SPEED_FOR_ROBOT_MM_S << " mm/s)" << std::endl;
             } else if (puckTooCloseToZone) {
-                std::cout << "Skipping: puck already in or near defense zone (10cm buffer)" << std::endl;
+                //std::cout << "Skipping: puck already in or near defense zone (10cm buffer)" << std::endl;
             } else if(mover.moveTo(robotPos)) {
+                moveCommandSent = true;
+                lastMoveTimeUs = currentTimeUs;
+                // Save frame immediately when move command is sent
+                std::filesystem::create_directories("debug_all_frames");
+                cv::Mat moveFrame = frame.clone();
+                
+                // Draw "MOVE SENT" overlay
+                cv::putText(moveFrame, "MOVE SENT", cv::Point(20, 60), cv::FONT_HERSHEY_SIMPLEX, 2.0, cv::Scalar(0, 255, 0), 3);
+                
+                // Add detailed timestamp with milliseconds
+                auto now = std::chrono::system_clock::now();
+                auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+                time_t timeT = std::chrono::system_clock::to_time_t(now);
+                struct tm timeinfo;
+                #if defined(_WIN32) || defined(_WIN64)
+                    localtime_s(&timeinfo, &timeT);
+                #else
+                    localtime_r(&timeT, &timeinfo);
+                #endif
+                
+                char timeStr[64];
+                strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", &timeinfo);
+                std::string fullTimeStr = std::string(timeStr) + "." + std::to_string(ms.count()).substr(0, 3);
+                cv::putText(moveFrame, fullTimeStr, cv::Point(20, 120), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2);
+                
+                // Save with sequential index
+                char filename[256];
+                snprintf(filename, sizeof(filename), "debug_all_frames/%04d_MOVE.jpg", debugImageIndex);
+                cv::imwrite(filename, moveFrame);
+                debugImageIndex++;
+
                 std::cout << "Camera coordinates entry: X: " << predictedEntryTable.x << " mm , Y: " << predictedEntryTable.y << " mm" << std::endl;
                 std::cout << "Moving robot to: X: " << robotPos.x << " mm, Y: " << robotPos.y << " mm" << std::endl;
 
@@ -255,6 +292,52 @@ int main() {
             } else {
                 std::cout << "Point too close to last position" << std::endl;
             }
+            }
+        }
+
+        // Debug: save frame for 1 second after move command (every 50ms)
+        if (lastMoveTimeUs > 0 && (currentTimeUs - lastMoveTimeUs) < DEBUG_RECORD_DURATION_US) {
+            if ((currentTimeUs - lastSavedFrameTimeUs) >= SAMPLE_INTERVAL_US) {
+                lastSavedFrameTimeUs = currentTimeUs;
+                
+                // Create debug folder if needed
+                std::filesystem::create_directories("debug_all_frames");
+                
+                // Draw status overlay on frame copy
+                cv::Mat debugFrame = frame.clone();
+                std::string statusText = "RECORDING";
+                cv::Scalar statusColor = cv::Scalar(0, 255, 255); // Cyan for recording
+                
+                // Draw large status text
+                cv::putText(debugFrame, statusText, cv::Point(20, 60), cv::FONT_HERSHEY_SIMPLEX, 2.0, statusColor, 3);
+                
+                // Add detailed timestamp with milliseconds
+                auto now = std::chrono::system_clock::now();
+                auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+                time_t timeT = std::chrono::system_clock::to_time_t(now);
+                struct tm timeinfo;
+                #if defined(_WIN32) || defined(_WIN64)
+                    localtime_s(&timeinfo, &timeT);
+                #else
+                    localtime_r(&timeT, &timeinfo);
+                #endif
+                
+                char timeStr[64];
+                strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", &timeinfo);
+                std::string fullTimeStr = std::string(timeStr) + "." + std::to_string(ms.count()).substr(0, 3);
+                cv::putText(debugFrame, fullTimeStr, cv::Point(20, 120), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255, 255, 255), 2);
+                
+                // Add time elapsed since move command
+                double timeSinceMoveMs = (currentTimeUs - lastMoveTimeUs) / 1000.0;
+                char elapsedStr[64];
+                snprintf(elapsedStr, sizeof(elapsedStr), "Time since move: %.1f ms", timeSinceMoveMs);
+                cv::putText(debugFrame, elapsedStr, cv::Point(20, 160), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 0), 2);
+                
+                // Save with sequential index
+                char filename[256];
+                snprintf(filename, sizeof(filename), "debug_all_frames/%04d_RECORDING.jpg", debugImageIndex);
+                cv::imwrite(filename, debugFrame);
+                debugImageIndex++;
             }
         }
     }
